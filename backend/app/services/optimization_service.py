@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from app.services.data_service import load_customer_data
+from .data_service import load_customer_data
 
 
 def build_recommendations(budget: float, limit: int = 25) -> dict:

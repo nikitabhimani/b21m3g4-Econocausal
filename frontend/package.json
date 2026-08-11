@@ -1,7 +1,22 @@
 {
-  "name": "econocausal-frontend",
+  "name": "frontend",
+  "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "echo 'Frontend scaffold ready. Install Next.js dependencies to start.'"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "next": "16.3.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.0",
+    "tailwindcss": "^4"
   }
 }

@@ -1,13 +1,13 @@
 from fastapi import APIRouter, Query
 
-from app.schemas.contracts import (
+from ..schemas.contracts import (
     CausalSummaryResponse,
     RecommendationListResponse,
     SummaryResponse,
 )
-from app.services.causal_service import build_causal_summary, get_top_ite_customers
-from app.services.data_service import build_summary, get_customer_by_id, load_customer_data
-from app.services.optimization_service import build_recommendations
+from ..services.causal_service import build_causal_summary, get_top_ite_customers
+from ..services.data_service import build_summary, get_customer_by_id, load_customer_data
+from ..services.optimization_service import build_recommendations
 
 router = APIRouter(prefix="/api", tags=["Econocausal"])
 
