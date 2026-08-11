@@ -1,0 +1,7 @@
+{
+  "name": "econocausal-frontend",
+  "private": true,
+  "scripts": {
+    "dev": "echo 'Frontend scaffold ready. Install Next.js dependencies to start.'"
+  }
+}

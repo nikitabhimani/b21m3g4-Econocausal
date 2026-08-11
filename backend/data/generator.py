@@ -359,14 +359,16 @@ class EconoCausalDataGenerator:
 
         if len(treated_indices) > 0:
 
-            # Higher-value customers are more likely to receive larger
-            # discounts. This creates additional business realism.
+            # Only calculate discount scores for treated customers.
+            #
+            # Higher-value and more engaged customers are more likely
+            # to receive larger discounts.
             discount_score = (
-                0.50 * segment_score
-                + 0.0005 * historical_revenue
-                + 0.15 * previous_campaign_response
-                - 0.01 * days_since_last_purchase
-                - 0.20 * price_sensitivity
+                0.50 * segment_score[treated_indices]
+                + 0.0005 * historical_revenue[treated_indices]
+                + 0.15 * previous_campaign_response[treated_indices]
+                - 0.01 * days_since_last_purchase[treated_indices]
+                - 0.20 * price_sensitivity[treated_indices]
                 + self.rng.normal(
                     0,
                     0.7,
@@ -374,26 +376,33 @@ class EconoCausalDataGenerator:
                 )
             )
 
-            ranks = pd.Series(
-                discount_score
-            ).rank(
-                method="first",
-                pct=True,
-            ).to_numpy()
-
-            levels = np.array(
-                self.config.discount_levels[1:]
+            # Convert scores to percentile ranks.
+            ranks = (
+                pd.Series(discount_score)
+                .rank(
+                    method="first",
+                    pct=True,
+                )
+                .to_numpy()
             )
 
-            # Convert percentile rank into discount levels.
-            indices = np.minimum(
-                (ranks * len(levels)).astype(int),
-                len(levels) - 1,
+            # Available non-zero discount levels.
+            discount_levels = np.array(
+                self.config.discount_levels[1:],
+                dtype=float,
+            )
+
+            # Map percentile → discount level.
+            level_indices = np.minimum(
+                (
+                    ranks * len(discount_levels)
+                ).astype(int),
+                len(discount_levels) - 1,
             )
 
             discount_percentage[
                 treated_indices
-            ] = levels[indices]
+            ] = discount_levels[level_indices]
 
         # --------------------------------------------------------------
         # 11. Heterogeneous treatment effect
@@ -445,17 +454,43 @@ class EconoCausalDataGenerator:
         # 12. Potential outcomes
         # --------------------------------------------------------------
 
+        # Control potential outcome.
         purchase_probability_control = np.clip(
             baseline_purchase_probability,
             0.001,
             0.999,
         )
 
+        # Treatment potential outcome.
+        #
+        # IMPORTANT:
+        # The actual ITE must always equal:
+        #
+        #   P(Y=1 | T=1, X) - P(Y=1 | T=0, X)
+        #
+        # Therefore, calculate the treatment probability first and then
+        # derive the final ITE from the two potential outcomes.
+        raw_treatment_probability = (
+            purchase_probability_control
+            + true_ite
+        )
+
         purchase_probability_treatment = np.clip(
-            baseline_purchase_probability
-            + true_ite,
+            raw_treatment_probability,
             0.001,
             0.999,
+        )
+
+        # Recalculate ITE after probability clipping so that the
+        # ground-truth relationship is mathematically consistent.
+        true_ite = (
+            purchase_probability_treatment
+            - purchase_probability_control
+        )
+
+        true_ite = np.round(
+            true_ite,
+            10,
         )
 
         # --------------------------------------------------------------
@@ -593,7 +628,7 @@ class EconoCausalDataGenerator:
 
         df[probability_columns] = df[
             probability_columns
-        ].round(6)
+        ].round(10)
 
         return df
 

@@ -1,0 +1,34 @@
+{
+  "summary": {
+    "customers": 100000,
+    "treated_customers": 35000,
+    "control_customers": 65000,
+    "treatment_rate": 0.35,
+    "purchase_rate": 0.18,
+    "average_true_ite": 0.12,
+    "total_revenue": 3100000.0,
+    "total_discount_cost": 240000.0
+  },
+  "causal_summary": {
+    "average_ite": 0.12,
+    "median_ite": 0.09,
+    "positive_ite_share": 0.71,
+    "top_positive_ite": 0.8,
+    "top_negative_ite": -0.05
+  },
+  "recommendations": {
+    "budget": 1000000.0,
+    "total_recommended_customers": 25,
+    "total_expected_profit": 180000.0,
+    "total_expected_cost": 45000.0,
+    "recommendations": [
+      {
+        "customer_id": 42,
+        "predicted_ite": 0.41,
+        "recommended_discount": 0.1,
+        "expected_profit": 1800.0,
+        "expected_cost": 500.0
+      }
+    ]
+  }
+}
