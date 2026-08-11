@@ -1,0 +1,27 @@
+{
+    "customers": 100000,
+    "treated_customers": 34972,
+    "control_customers": 65028,
+    "treatment_rate": 0.34972,
+    "purchase_rate": 0.22485,
+    "treated_purchase_rate": 0.3509092988676656,
+    "control_purchase_rate": 0.1570554222796334,
+    "average_true_ite": 0.041983602171158,
+    "median_true_ite": 0.0,
+    "average_purchase_value": 26.308388499999996,
+    "total_revenue": 2630838.8499999996,
+    "total_discount_cost": 259515.57,
+    "configuration": {
+        "n_customers": 100000,
+        "seed": 42,
+        "treatment_rate_target": 0.35,
+        "discount_levels": [
+            0.0,
+            0.05,
+            0.1,
+            0.15,
+            0.2
+        ],
+        "purchase_window_days": 30
+    }
+}
