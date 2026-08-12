@@ -769,3 +769,17 @@ class EconoCausalDataGenerator:
                 "discount_cost"
             ].sum(),
         }
+if __name__ == "__main__":
+
+    config = GeneratorConfig(n_customers=100_000)
+
+    generator = EconoCausalDataGenerator(config)
+
+    df = generator.generate()
+
+    output_path = "data/econocausal_dataset.csv"
+    df.to_csv(output_path, index=False)
+
+    print("Dataset generated successfully!")
+    print(f"Shape: {df.shape}")
+    print(f"Saved to: {output_path}")
