@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-export default function Sidebar() {
+export default function Sidebar({ currentTab = "Dashboard", onTabChange }) {
   const pathname = usePathname();
 
   const navItems = [
@@ -20,65 +20,11 @@ export default function Sidebar() {
       )
     },
     {
-      name: "Causal Insights",
-      path: "#causal",
-      icon: (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="18" y1="20" x2="18" y2="10" />
-          <line x1="12" y1="20" x2="12" y2="4" />
-          <line x1="6" y1="20" x2="6" y2="14" />
-        </svg>
-      )
-    },
-    {
-      name: "Uplift Analysis",
-      path: "#uplift",
-      icon: (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
-          <polyline points="17 6 23 6 23 12" />
-        </svg>
-      )
-    },
-    {
-      name: "Optimization",
-      path: "#optimization",
-      icon: (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-        </svg>
-      )
-    },
-    {
       name: "Recommendations",
       path: "#recommendations",
       icon: (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
-        </svg>
-      )
-    },
-    {
-      name: "Data Overview",
-      path: "#data",
-      icon: (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-          <ellipse cx="12" cy="5" rx="9" ry="3" />
-          <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
-          <path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3" />
-        </svg>
-      )
-    },
-    {
-      name: "Reports",
-      path: "#reports",
-      icon: (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-          <polyline points="14 2 14 8 20 8" />
-          <line x1="16" y1="13" x2="8" y2="13" />
-          <line x1="16" y1="17" x2="8" y2="17" />
-          <polyline points="10 9 9 9 8 9" />
         </svg>
       )
     },
@@ -96,7 +42,7 @@ export default function Sidebar() {
 
   return (
     <aside className="sidebar">
-      <div className="brand-section">
+      <div className="brand-section" onClick={() => onTabChange && onTabChange("Dashboard")} style={{ cursor: "pointer" }}>
         <div className="brand-logo">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
@@ -112,14 +58,29 @@ export default function Sidebar() {
       <nav style={{ flex: 1, overflowY: "auto", marginBottom: "1rem" }}>
         <ul className="nav-menu">
           {navItems.map((item) => {
-            // Dashboard is the active item in our single page layout
-            const isActive = item.name === "Dashboard";
+            const isActive = item.name === currentTab;
             return (
               <li key={item.name} className={`nav-item ${isActive ? "active" : ""}`}>
-                <Link href={item.path}>
+                <button
+                  onClick={() => onTabChange && onTabChange(item.name)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.75rem",
+                    width: "100%",
+                    padding: "0.85rem 1rem",
+                    borderRadius: "8px",
+                    fontWeight: "600",
+                    color: isActive ? "var(--primary)" : "var(--text-secondary)",
+                    backgroundColor: isActive ? "var(--primary-glow)" : "transparent",
+                    cursor: "pointer",
+                    textAlign: "left",
+                    transition: "all 0.2s ease"
+                  }}
+                >
                   {item.icon}
-                  <span>{item.name}</span>
-                </Link>
+                  <span style={{ fontSize: "0.95rem" }}>{item.name}</span>
+                </button>
               </li>
             );
           })}

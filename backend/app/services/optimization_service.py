@@ -1,12 +1,25 @@
 from __future__ import annotations
 
+from pathlib import Path
 import pandas as pd
 
 from .data_service import load_customer_data
 
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+PREDICTIONS_PATH = PROJECT_ROOT / "outputs" / "causal_predictions.csv"
+
 
 def build_recommendations(budget: float, limit: int = 25) -> dict:
-    df = load_customer_data()
+    if PREDICTIONS_PATH.exists():
+        pred_df = pd.read_csv(PREDICTIONS_PATH)
+        df = load_customer_data()
+        # Drop true_ite to use the predicted one from the ML pipeline
+        df = df.drop(columns=["true_ite"], errors="ignore")
+        df = pd.merge(df, pred_df[["customer_id", "ite"]], on="customer_id")
+        df = df.rename(columns={"ite": "true_ite"})
+    else:
+        df = load_customer_data()
+
     scored = df[["customer_id", "true_ite", "discount_cost", "net_revenue"]].copy()
     scored["expected_profit"] = scored["true_ite"] * scored["net_revenue"]
     scored["expected_cost"] = scored["discount_cost"]
