@@ -1,0 +1,43 @@
+{
+    "model_type": "t_learner",
+    "base_estimator": "gradient_boosting",
+    "seed": 42,
+    "hyperparameters": {
+        "n_estimators": 100,
+        "max_depth": 4,
+        "min_samples_split": 10,
+        "learning_rate": 0.1
+    },
+    "trained_at": "2026-08-12T17:20:55.011866Z",
+    "features": {
+        "categorical_covariates": [
+            "customer_segment"
+        ],
+        "numeric_covariates": [
+            "age",
+            "tenure_months",
+            "historical_orders",
+            "historical_revenue",
+            "avg_order_value",
+            "days_since_last_purchase",
+            "website_visits",
+            "email_opens",
+            "email_clicks",
+            "previous_campaign_response"
+        ],
+        "outcome": "purchase",
+        "treatment": "treatment_received"
+    },
+    "preprocessing_warnings": [],
+    "evaluation_metrics": {
+        "mae": 0.0836539698294438,
+        "rmse": 0.10433936409524021,
+        "correlation": 0.43248571344925524,
+        "qini_coefficient": 0.49366722527865636
+    },
+    "aggregate_estimates": {
+        "average_ite": 0.10793223154563847,
+        "median_ite": 0.0927680716403717,
+        "positive_ite_share": 0.9841296825936519
+    }
+}

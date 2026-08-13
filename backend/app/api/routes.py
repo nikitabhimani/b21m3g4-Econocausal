@@ -46,3 +46,65 @@ def recommendations(
     limit: int = Query(default=25, ge=1, le=100),
 ) -> RecommendationListResponse:
     return build_recommendations(budget=budget, limit=limit)
+
+
+from pydantic import BaseModel
+
+class RetrainRequest(BaseModel):
+    model_type: str = "t_learner"
+    base_estimator: str = "gradient_boosting"
+    seed: int = 42
+
+@router.post("/causal/retrain")
+def retrain_model(request: RetrainRequest) -> dict:
+    import sys
+    import os
+    import yaml
+    
+    # 1. Update config.yaml with new parameters
+    backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    project_root = os.path.dirname(backend_dir)
+    config_path = os.path.join(project_root, "causal_ml", "config.yaml")
+    
+    if not os.path.exists(config_path):
+        return {"error": "Causal ML configuration file not found."}
+        
+    with open(config_path, "r") as f:
+        config = yaml.safe_load(f)
+        
+    config["model"]["type"] = request.model_type
+    config["model"]["base_estimator"] = request.base_estimator
+    config["model"]["seed"] = request.seed
+    
+    with open(config_path, "w") as f:
+        yaml.safe_dump(config, f)
+        
+    # 2. Add causal_ml directory to Python path and execute scripts
+    causal_ml_dir = os.path.join(project_root, "causal_ml")
+    if causal_ml_dir not in sys.path:
+        sys.path.append(causal_ml_dir)
+        
+    try:
+        import importlib
+        import train
+        import predict
+        import diagnostics
+        
+        # Reload modules to run with the updated config.yaml
+        importlib.reload(train)
+        importlib.reload(predict)
+        importlib.reload(diagnostics)
+        
+        train.main()
+        predict.main()
+        diagnostics.main()
+        
+    except Exception as e:
+        import traceback
+        return {
+            "error": f"Failed to execute training pipeline: {str(e)}",
+            "trace": traceback.format_exc()
+        }
+        
+    # 3. Return the updated causal summary
+    return build_causal_summary()
