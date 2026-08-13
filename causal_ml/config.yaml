@@ -1,0 +1,23 @@
+treatment: treatment_received
+
+outcome: purchase
+
+confounders:
+  - historical_revenue
+  - historical_orders
+  - avg_order_value
+  - days_since_last_purchase
+  - website_visits
+  - email_opens
+  - email_clicks
+  - previous_campaign_response
+  - customer_segment
+
+covariates:
+  - age
+  - tenure_months
+  - customer_segment
+
+model:
+  name: LinearDML
+  base_estimator: LightGBM
