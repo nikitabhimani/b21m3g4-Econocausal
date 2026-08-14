@@ -1,15 +1,20 @@
 # EconoCausal
 
-EconoCausal is a causal customer-behaviour and discount-optimisation platform. It includes a synthetic customer-data generator, PostgreSQL data layer, FastAPI backend, and Next.js dashboard.
+EconoCausal is an end-to-end causal customer-behavior and discount-optimization platform. It includes a synthetic customer-data generator, PostgreSQL data layer, an interactive causal machine learning pipeline, a FastAPI backend, and a Next.js dashboard.
 
-## Repository layout
+---
 
-- `data/` — generated customer data and its summary
-- `scripts/generate_data.py` — reproducible synthetic-data generator
-- `backend/` — database SQL, data utilities, and FastAPI application
-- `backend/scripts/` — database load, validation, and export commands
+## Repository Layout
+
+- `causal_ml/` — Causal machine learning pipeline (config, preprocessing, estimators, train/predict/diagnostics scripts)
+- `data/` — Generated customer data and its summary
+- `outputs/` — Causal model artifacts (`model.joblib`), target predictions (`causal_predictions.csv`), performance summaries, and training metadata history
+- `backend/` — Database SQL, data utilities, and FastAPI application
 - `frontend/` — Next.js dashboard
-- `docs/database.md` — detailed database notes
+- `scripts/generate_data.py` — Reproducible synthetic-data generator
+- `docs/database.md` — Detailed database notes
+
+---
 
 ## Prerequisites
 
@@ -23,17 +28,47 @@ Install the Python dependencies:
 python3 -m pip install -r backend/requirements.txt
 ```
 
-## Data
+---
 
-The checked-in dataset is accompanied by `data/dataset_summary.json`. To generate a reproducible dataset:
+## Causal Machine Learning Pipeline
 
-```bash
-python3 -m scripts.generate_data --customers 100000 --seed 42 --treatment-rate 0.35
+EconoCausal features an integrated Causal ML pipeline supporting **T-Learner**, **X-Learner**, and **Double Machine Learning (DML)** models using `scikit-learn` and `econml`.
+
+### 1. Configure hyperparameters
+Tune feature sets, estimator details, and tree parameters inside [`causal_ml/config.yaml`](file:///c:/Users/Acer-Nitro/Desktop/experience/ds/causal_ml/config.yaml):
+```yaml
+model:
+  type: "t_learner"  # Options: t_learner, x_learner, dml
+  base_estimator: "gradient_boosting"  # Options: gradient_boosting, random_forest, linear
+  seed: 42
+  hyperparameters:
+    n_estimators: 100
+    max_depth: 4
+    min_samples_split: 10
+    learning_rate: 0.1
 ```
 
-The generator validates customer IDs, missing values, treatment and purchase flags, discount rules, purchase logic, and consistency of the synthetic individual treatment effect (ITE).
+### 2. Preprocess and train model
+Preprocess features, run class imbalance checks, and serialize the trained pipeline:
+```bash
+python causal_ml/train.py
+```
 
-## Database setup
+### 3. Run predictions
+Generate baseline probabilities, treated probabilities, and predicted individual treatment effects (ITE) for customers:
+```bash
+python causal_ml/predict.py
+```
+
+### 4. Execute diagnostics
+Compute precision metrics (MAE, RMSE, correlation), evaluate Qini targeting coefficient curves, and write registries:
+```bash
+python causal_ml/diagnostics.py
+```
+
+---
+
+## Database Setup
 
 Start PostgreSQL with Docker Compose, if needed:
 
@@ -68,11 +103,15 @@ python3 backend/scripts/export_data.py --format csv --out data/customers_export.
 python3 backend/scripts/export_data.py --format json --out data/customers_export.json
 ```
 
+For reproducible database setup and dedicated downstream datasets, see
+[`docs/database.md`](docs/database.md). In particular, `setup_db.sh` is
+idempotent and `refresh_db.sh` replaces all data deliberately.
+
 See [the database guide](docs/database.md) for local PostgreSQL setup and command details.
 
-> Note: `data/customers.csv` is currently used together with the seed rows during bootstrap. Regenerating the CSV before running `setup_db.sh` can introduce duplicate seeded customer IDs; resolve that dataset/seed overlap before using regeneration in the bootstrap workflow.
+---
 
-## Run the application
+## Run the Application
 
 Start the FastAPI development server:
 
@@ -90,20 +129,21 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-## Service ports
+---
+
+## Service Ports
 
 - Backend API: `http://127.0.0.1:8001/api`
 - Frontend dashboard: `http://localhost:3000`
 
-## API endpoints
+---
 
-- `/api/health` — service health status
-- `/api/summary` — customer counts, conversions, and revenue
-- `/api/customers/{customer_id}` — a customer record
-- `/api/causal/summary` — causal-model summary metrics
-- `/api/causal/ite` — customers ranked by ITE
-- `/api/recommendations` — budget-optimised customer recommendations
+## API Endpoints
 
-## Current data-layer status
-
-The data layer currently provides the customer schema, model-run and recommendation tables, seed data, CSV loading, database validation, generic CSV/JSON exports, indexes, and customer/revenue summary views. Campaign and prediction tables, additional summary views, dedicated model/dashboard exports, and an idempotent refresh workflow are still planned.
+- `GET  /api/health` — service health status
+- `GET  /api/summary` — customer counts, conversions, and revenue
+- `GET  /api/customers/{customer_id}` — a detailed customer record
+- `GET  /api/causal/summary` — causal-model summary metrics (MAE, Qini, etc.)
+- `GET  /api/causal/ite` — customer records ranked by predicted uplift
+- `GET  /api/recommendations` — budget-optimised target discount recommendations
+- `POST /api/causal/retrain` — triggers causal model retraining, updates config, and refreshes metrics dynamically
