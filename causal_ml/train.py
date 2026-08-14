@@ -36,9 +36,14 @@ def main():
     
     # 2. Preprocessing
     print("Preprocessing dataset...")
+    # Identify categorical vs numeric features from the config
+    all_features = features.get("covariates", []) + features.get("confounders", [])
+    categorical_covariates = ["customer_segment"] if "customer_segment" in all_features else []
+    numeric_covariates = [f for f in all_features if f != "customer_segment"]
+    
     preprocessor = CausalPreprocessor(
-        categorical_covariates=features["categorical_covariates"],
-        numeric_covariates=features["numeric_covariates"],
+        categorical_covariates=categorical_covariates,
+        numeric_covariates=numeric_covariates,
         treatment=features["treatment"],
         outcome=features["outcome"]
     )

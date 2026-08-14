@@ -33,6 +33,16 @@ def get_base_models(estimator_name, seed=42, hyperparams=None):
             random_state=seed, max_depth=max_d, n_estimators=n_est,
             min_samples_split=min_split, n_jobs=-1
         )
+    elif estimator_name == "lightgbm":
+        from lightgbm import LGBMClassifier, LGBMRegressor
+        clf = LGBMClassifier(
+            random_state=seed, max_depth=max_d, n_estimators=n_est,
+            learning_rate=lr, verbosity=-1
+        )
+        reg = LGBMRegressor(
+            random_state=seed, max_depth=max_d, n_estimators=n_est,
+            learning_rate=lr, verbosity=-1
+        )
     else:  # default to linear models
         clf = LogisticRegression(random_state=seed, max_iter=1000)
         reg = Ridge(random_state=seed)
@@ -125,16 +135,26 @@ class DoubleMachineLearning:
         try:
             from econml.dml import LinearDML
             
-            clf_y, _ = get_base_models(self.base_estimator, self.seed, self.hyperparams)
             clf_t, _ = get_base_models(self.base_estimator, self.seed, self.hyperparams)
+            _, reg_y = get_base_models(self.base_estimator, self.seed, self.hyperparams)
             
             self.dml_model = LinearDML(
-                model_y=clf_y,
+                model_y=reg_y,
                 model_t=clf_t,
                 discrete_treatment=True,
                 random_state=self.seed
             )
-            self.dml_model.fit(Y, W, X=X, W=X)
+            
+            if hasattr(X, "columns"):
+                covariate_cols = [col for col in X.columns if col in ['age', 'tenure_months']]
+                confounder_cols = [col for col in X.columns if col not in ['age', 'tenure_months']]
+                X_cov = X[covariate_cols]
+                X_conf = X[confounder_cols]
+            else:
+                X_cov = X
+                X_conf = X
+                
+            self.dml_model.fit(Y, W, X=X_cov, W=X_conf)
             
         except Exception as e:
             print(f"EconML initialization failed or not available ({e}). Falling back to T-Learner.")
@@ -144,14 +164,22 @@ class DoubleMachineLearning:
 
     def predict_potential_outcomes(self, X):
         if self.dml_model is not None:
-            fallback = TLearner(base_estimator=self.base_estimator, seed=self.seed, hyperparams=self.hyperparams)
-            fallback.fit(X, np.zeros(len(X)), np.zeros(len(X)))
-            return fallback.predict_potential_outcomes(X)
+            # LinearDML directly estimates CATE (Conditional Average Treatment Effect)
+            # and does not independently estimate counterfactual outcome probabilities.
+            # Return NaN to avoid fabricating baseline/treatment probabilities.
+            n_samples = len(X)
+            nan_probs = np.full(n_samples, np.nan)
+            return nan_probs, nan_probs
         return self.fallback_model.predict_potential_outcomes(X)
 
     def predict_ite(self, X):
         if self.dml_model is not None:
-            return self.dml_model.effect(X).flatten()
+            if hasattr(X, "columns"):
+                covariate_cols = [col for col in X.columns if col in ['age', 'tenure_months']]
+                X_cov = X[covariate_cols]
+            else:
+                X_cov = X
+            return self.dml_model.effect(X_cov).flatten()
         return self.fallback_model.predict_ite(X)
 
 
