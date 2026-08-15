@@ -33,6 +33,16 @@ def get_base_models(estimator_name, seed=42, hyperparams=None):
             random_state=seed, max_depth=max_d, n_estimators=n_est,
             min_samples_split=min_split, n_jobs=-1
         )
+    elif estimator_name == "lightgbm":
+        from lightgbm import LGBMClassifier, LGBMRegressor
+        clf = LGBMClassifier(
+            random_state=seed, max_depth=max_d, n_estimators=n_est,
+            learning_rate=lr, verbosity=-1
+        )
+        reg = LGBMRegressor(
+            random_state=seed, max_depth=max_d, n_estimators=n_est,
+            learning_rate=lr, verbosity=-1
+        )
     else:  # default to linear models
         clf = LogisticRegression(random_state=seed, max_iter=1000)
         reg = Ridge(random_state=seed)
@@ -51,7 +61,7 @@ class TLearner:
     def fit(self, X, W, Y):
         clf_c, _ = get_base_models(self.base_estimator, self.seed, self.hyperparams)
         clf_t, _ = get_base_models(self.base_estimator, self.seed, self.hyperparams)
-
+        
         self.clf_control = clf_c.fit(X[W == 0], Y[W == 0])
         self.clf_treated = clf_t.fit(X[W == 1], Y[W == 1])
         return self
@@ -81,20 +91,20 @@ class XLearner:
         # Step 1: Train a T-Learner
         self.t_learner = TLearner(base_estimator=self.base_estimator, seed=self.seed, hyperparams=self.hyperparams)
         self.t_learner.fit(X, W, Y)
-
+        
         mu_0, mu_1 = self.t_learner.predict_potential_outcomes(X)
-
+        
         # Step 2: Impute treatment effects
         D_1 = Y[W == 1] - mu_0[W == 1]
         D_0 = mu_1[W == 0] - Y[W == 0]
-
+        
         # Train regression models to predict imputed effects
         _, reg_c = get_base_models(self.base_estimator, self.seed, self.hyperparams)
         _, reg_t = get_base_models(self.base_estimator, self.seed, self.hyperparams)
-
+        
         self.reg_effect_control = reg_c.fit(X[W == 0], D_0)
         self.reg_effect_treated = reg_t.fit(X[W == 1], D_1)
-
+        
         # Step 3: Train propensity model P(W=1 | X)
         prop_model, _ = get_base_models(self.base_estimator, self.seed, self.hyperparams)
         self.propensity_model = prop_model.fit(X, W)
@@ -106,7 +116,7 @@ class XLearner:
     def predict_ite(self, X):
         tau_0 = self.reg_effect_control.predict(X)
         tau_1 = self.reg_effect_treated.predict(X)
-
+        
         # Propensity score weighting
         e_x = self.propensity_model.predict_proba(X)[:, 1]
         return e_x * tau_0 + (1.0 - e_x) * tau_1
@@ -124,53 +134,52 @@ class DoubleMachineLearning:
     def fit(self, X, W, Y):
         try:
             from econml.dml import LinearDML
-
-            # FIX 1: model_y must be a REGRESSOR, not a classifier.
-            # DML internally needs a continuous residual/prediction for the
-            # outcome nuisance model, even when the outcome itself is binary
-            # (0/1). Passing a classifier here causes EconML to raise:
-            # "Cannot use a classifier as a first stage model when the
-            # target is continuous!"
-            # model_t is correctly a classifier, since treatment is discrete.
-            _, reg_y = get_base_models(self.base_estimator, self.seed, self.hyperparams)
+            
             clf_t, _ = get_base_models(self.base_estimator, self.seed, self.hyperparams)
-
-            # FIX 2: build the model in a local variable first, and only
-            # assign it to self.dml_model AFTER .fit() succeeds. Previously,
-            # self.dml_model was assigned before .fit() was called, so if
-            # fit() raised an exception, self.dml_model was still non-None
-            # (pointing at an unfitted model). predict_ite() then checked
-            # "if self.dml_model is not None" and tried to use the broken,
-            # unfitted model instead of falling back to TLearner, causing:
-            # AttributeError: '_FinalWrapper' object has no attribute '_d_t'
-            dml_model = LinearDML(
+            _, reg_y = get_base_models(self.base_estimator, self.seed, self.hyperparams)
+            
+            self.dml_model = LinearDML(
                 model_y=reg_y,
                 model_t=clf_t,
                 discrete_treatment=True,
                 random_state=self.seed
             )
-            dml_model.fit(Y, W, X=X, W=X)
-
-            # Only reaches here if fit() succeeded.
-            self.dml_model = dml_model
-
+            
+            if hasattr(X, "columns"):
+                covariate_cols = [col for col in X.columns if col in ['age', 'tenure_months']]
+                confounder_cols = [col for col in X.columns if col not in ['age', 'tenure_months']]
+                X_cov = X[covariate_cols]
+                X_conf = X[confounder_cols]
+            else:
+                X_cov = X
+                X_conf = X
+                
+            self.dml_model.fit(Y, W, X=X_cov, W=X_conf)
+            
         except Exception as e:
             print(f"EconML initialization failed or not available ({e}). Falling back to T-Learner.")
-            self.dml_model = None
             self.fallback_model = TLearner(base_estimator=self.base_estimator, seed=self.seed, hyperparams=self.hyperparams)
             self.fallback_model.fit(X, W, Y)
         return self
 
     def predict_potential_outcomes(self, X):
         if self.dml_model is not None:
-            fallback = TLearner(base_estimator=self.base_estimator, seed=self.seed, hyperparams=self.hyperparams)
-            fallback.fit(X, np.zeros(len(X)), np.zeros(len(X)))
-            return fallback.predict_potential_outcomes(X)
+            # LinearDML directly estimates CATE (Conditional Average Treatment Effect)
+            # and does not independently estimate counterfactual outcome probabilities.
+            # Return NaN to avoid fabricating baseline/treatment probabilities.
+            n_samples = len(X)
+            nan_probs = np.full(n_samples, np.nan)
+            return nan_probs, nan_probs
         return self.fallback_model.predict_potential_outcomes(X)
 
     def predict_ite(self, X):
         if self.dml_model is not None:
-            return self.dml_model.effect(X).flatten()
+            if hasattr(X, "columns"):
+                covariate_cols = [col for col in X.columns if col in ['age', 'tenure_months']]
+                X_cov = X[covariate_cols]
+            else:
+                X_cov = X
+            return self.dml_model.effect(X_cov).flatten()
         return self.fallback_model.predict_ite(X)
 
 
@@ -181,7 +190,7 @@ class CausalModelWrapper:
         self.base_estimator = base_estimator
         self.seed = seed
         self.hyperparams = hyperparams
-
+        
         if model_type == "t_learner":
             self.estimator = TLearner(base_estimator=base_estimator, seed=seed, hyperparams=hyperparams)
         elif model_type == "x_learner":

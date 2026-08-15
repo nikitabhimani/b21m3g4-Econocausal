@@ -1,10 +1,8 @@
 features:
-  categorical_covariates:
-    - customer_segment
-
-  numeric_covariates:
+  covariates:
     - age
     - tenure_months
+  confounders:
     - historical_orders
     - historical_revenue
     - avg_order_value
@@ -13,19 +11,28 @@ features:
     - email_opens
     - email_clicks
     - previous_campaign_response
-
-  outcome: purchase
+    - customer_segment
   treatment: treatment_received
+  outcome: purchase
 
 model:
-  type: "t_learner"
-  base_estimator: "gradient_boosting"
+  type: "dml"
+  base_estimator: "lightgbm"
   seed: 42
   hyperparameters:
     n_estimators: 100
     max_depth: 4
-    min_samples_split: 10
     learning_rate: 0.1
+
+  baseline:
+    type: "t_learner"
+    base_estimator: "gradient_boosting"
+    seed: 42
+    hyperparameters:
+      n_estimators: 100
+      max_depth: 4
+      min_samples_split: 10
+      learning_rate: 0.1
 
 paths:
   data_path: data/customers.csv

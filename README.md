@@ -103,6 +103,10 @@ python3 backend/scripts/export_data.py --format csv --out data/customers_export.
 python3 backend/scripts/export_data.py --format json --out data/customers_export.json
 ```
 
+For reproducible database setup and dedicated downstream datasets, see
+[`docs/database.md`](docs/database.md). In particular, `setup_db.sh` is
+idempotent and `refresh_db.sh` replaces all data deliberately.
+
 See [the database guide](docs/database.md) for local PostgreSQL setup and command details.
 
 ---
