@@ -51,7 +51,7 @@ class TLearner:
     def fit(self, X, W, Y):
         clf_c, _ = get_base_models(self.base_estimator, self.seed, self.hyperparams)
         clf_t, _ = get_base_models(self.base_estimator, self.seed, self.hyperparams)
-        
+
         self.clf_control = clf_c.fit(X[W == 0], Y[W == 0])
         self.clf_treated = clf_t.fit(X[W == 1], Y[W == 1])
         return self
@@ -81,20 +81,20 @@ class XLearner:
         # Step 1: Train a T-Learner
         self.t_learner = TLearner(base_estimator=self.base_estimator, seed=self.seed, hyperparams=self.hyperparams)
         self.t_learner.fit(X, W, Y)
-        
+
         mu_0, mu_1 = self.t_learner.predict_potential_outcomes(X)
-        
+
         # Step 2: Impute treatment effects
         D_1 = Y[W == 1] - mu_0[W == 1]
         D_0 = mu_1[W == 0] - Y[W == 0]
-        
+
         # Train regression models to predict imputed effects
         _, reg_c = get_base_models(self.base_estimator, self.seed, self.hyperparams)
         _, reg_t = get_base_models(self.base_estimator, self.seed, self.hyperparams)
-        
+
         self.reg_effect_control = reg_c.fit(X[W == 0], D_0)
         self.reg_effect_treated = reg_t.fit(X[W == 1], D_1)
-        
+
         # Step 3: Train propensity model P(W=1 | X)
         prop_model, _ = get_base_models(self.base_estimator, self.seed, self.hyperparams)
         self.propensity_model = prop_model.fit(X, W)
@@ -106,7 +106,7 @@ class XLearner:
     def predict_ite(self, X):
         tau_0 = self.reg_effect_control.predict(X)
         tau_1 = self.reg_effect_treated.predict(X)
-        
+
         # Propensity score weighting
         e_x = self.propensity_model.predict_proba(X)[:, 1]
         return e_x * tau_0 + (1.0 - e_x) * tau_1
@@ -124,20 +124,39 @@ class DoubleMachineLearning:
     def fit(self, X, W, Y):
         try:
             from econml.dml import LinearDML
-            
-            clf_y, _ = get_base_models(self.base_estimator, self.seed, self.hyperparams)
+
+            # FIX 1: model_y must be a REGRESSOR, not a classifier.
+            # DML internally needs a continuous residual/prediction for the
+            # outcome nuisance model, even when the outcome itself is binary
+            # (0/1). Passing a classifier here causes EconML to raise:
+            # "Cannot use a classifier as a first stage model when the
+            # target is continuous!"
+            # model_t is correctly a classifier, since treatment is discrete.
+            _, reg_y = get_base_models(self.base_estimator, self.seed, self.hyperparams)
             clf_t, _ = get_base_models(self.base_estimator, self.seed, self.hyperparams)
-            
-            self.dml_model = LinearDML(
-                model_y=clf_y,
+
+            # FIX 2: build the model in a local variable first, and only
+            # assign it to self.dml_model AFTER .fit() succeeds. Previously,
+            # self.dml_model was assigned before .fit() was called, so if
+            # fit() raised an exception, self.dml_model was still non-None
+            # (pointing at an unfitted model). predict_ite() then checked
+            # "if self.dml_model is not None" and tried to use the broken,
+            # unfitted model instead of falling back to TLearner, causing:
+            # AttributeError: '_FinalWrapper' object has no attribute '_d_t'
+            dml_model = LinearDML(
+                model_y=reg_y,
                 model_t=clf_t,
                 discrete_treatment=True,
                 random_state=self.seed
             )
-            self.dml_model.fit(Y, W, X=X, W=X)
-            
+            dml_model.fit(Y, W, X=X, W=X)
+
+            # Only reaches here if fit() succeeded.
+            self.dml_model = dml_model
+
         except Exception as e:
             print(f"EconML initialization failed or not available ({e}). Falling back to T-Learner.")
+            self.dml_model = None
             self.fallback_model = TLearner(base_estimator=self.base_estimator, seed=self.seed, hyperparams=self.hyperparams)
             self.fallback_model.fit(X, W, Y)
         return self
@@ -162,7 +181,7 @@ class CausalModelWrapper:
         self.base_estimator = base_estimator
         self.seed = seed
         self.hyperparams = hyperparams
-        
+
         if model_type == "t_learner":
             self.estimator = TLearner(base_estimator=base_estimator, seed=seed, hyperparams=hyperparams)
         elif model_type == "x_learner":
