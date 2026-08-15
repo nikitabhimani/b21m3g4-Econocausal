@@ -1,0 +1,41 @@
+features:
+  covariates:
+    - age
+    - tenure_months
+  confounders:
+    - historical_orders
+    - historical_revenue
+    - avg_order_value
+    - days_since_last_purchase
+    - website_visits
+    - email_opens
+    - email_clicks
+    - previous_campaign_response
+    - customer_segment
+  treatment: treatment_received
+  outcome: purchase
+
+model:
+  type: "dml"
+  base_estimator: "lightgbm"
+  seed: 42
+  hyperparameters:
+    n_estimators: 100
+    max_depth: 4
+    learning_rate: 0.1
+
+  baseline:
+    type: "t_learner"
+    base_estimator: "gradient_boosting"
+    seed: 42
+    hyperparameters:
+      n_estimators: 100
+      max_depth: 4
+      min_samples_split: 10
+      learning_rate: 0.1
+
+paths:
+  data_path: data/customers.csv
+  model_path: outputs/model.joblib
+  predictions_path: outputs/causal_predictions.csv
+  summary_path: outputs/causal_summary.json

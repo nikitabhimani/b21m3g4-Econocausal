@@ -1,0 +1,8 @@
+pandas 
+numpy 
+scikit-learn 
+dowhy 
+econml 
+scipy 
+matplotlib 
+fastapi 
