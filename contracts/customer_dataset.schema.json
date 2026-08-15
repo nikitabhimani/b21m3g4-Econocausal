@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://econocausal.local/contracts/customer_dataset.schema.json",
+  "title": "EconoCausal Customer Dataset",
+  "description": "Frozen v1 shared contract for CSV and JSON customer imports.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["customer_id", "age", "tenure_months", "customer_segment", "historical_orders", "historical_revenue", "avg_order_value", "days_since_last_purchase", "website_visits", "email_opens", "email_clicks", "previous_campaign_response", "treatment_received", "discount_percentage", "purchase", "purchase_value", "discount_cost", "net_revenue", "true_baseline_purchase_probability", "true_treatment_purchase_probability", "true_ite", "true_treatment_probability"],
+  "properties": {
+    "customer_id": {"type": "integer", "minimum": 1}, "campaign_id": {"type": ["integer", "null"], "minimum": 1}, "age": {"type": "integer", "minimum": 0}, "tenure_months": {"type": "integer", "minimum": 0}, "customer_segment": {"type": "string", "minLength": 1}, "historical_orders": {"type": "integer", "minimum": 0}, "historical_revenue": {"type": "number", "minimum": 0}, "avg_order_value": {"type": "number", "minimum": 0}, "days_since_last_purchase": {"type": "integer", "minimum": 0}, "website_visits": {"type": "integer", "minimum": 0}, "email_opens": {"type": "integer", "minimum": 0}, "email_clicks": {"type": "integer", "minimum": 0}, "previous_campaign_response": {"type": "integer", "minimum": 0}, "treatment_received": {"enum": [0, 1]}, "discount_percentage": {"type": "number", "minimum": 0, "maximum": 1}, "purchase": {"enum": [0, 1]}, "purchase_value": {"type": "number", "minimum": 0}, "discount_cost": {"type": "number", "minimum": 0}, "net_revenue": {"type": "number"}, "true_baseline_purchase_probability": {"type": "number", "minimum": 0, "maximum": 1}, "true_treatment_purchase_probability": {"type": "number", "minimum": 0, "maximum": 1}, "true_ite": {"type": "number"}, "true_treatment_probability": {"type": "number", "minimum": 0, "maximum": 1}
+  }
+}

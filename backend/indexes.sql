@@ -15,3 +15,8 @@ ON customers (customer_segment);
 -- Index on purchase_value for range queries
 CREATE INDEX IF NOT EXISTS idx_customers_purchase_value
 ON customers (purchase_value);
+
+CREATE INDEX IF NOT EXISTS idx_customers_campaign_id ON customers (campaign_id);
+CREATE INDEX IF NOT EXISTS idx_predictions_customer_model ON predictions (customer_id, model_run_id);
+CREATE INDEX IF NOT EXISTS idx_recommendations_customer_id ON recommendations (customer_id);
+CREATE INDEX IF NOT EXISTS idx_recommendations_campaign_id ON recommendations (campaign_id);
