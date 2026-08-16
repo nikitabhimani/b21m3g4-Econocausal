@@ -31,7 +31,7 @@ def load_data(config):
 
 
 def evaluate_model(model_type, X_train, W_train, Y_train, X_test, true_ite_test,
-                    base_estimator, seed, hyperparams):
+                   base_estimator, seed, hyperparams):
     model = CausalModelWrapper(
         model_type=model_type,
         base_estimator=base_estimator,
@@ -58,9 +58,14 @@ def main():
 
     df = load_data(config)
 
+    # Derive categorical/numeric covariates from the new covariates+confounders schema
+    all_features = features.get("covariates", []) + features.get("confounders", [])
+    categorical_covariates = ["customer_segment"] if "customer_segment" in all_features else []
+    numeric_covariates = [f for f in all_features if f != "customer_segment"]
+
     preprocessor = CausalPreprocessor(
-        categorical_covariates=features["categorical_covariates"],
-        numeric_covariates=features["numeric_covariates"],
+        categorical_covariates=categorical_covariates,
+        numeric_covariates=numeric_covariates,
         treatment=features["treatment"],
         outcome=features["outcome"],
     )
