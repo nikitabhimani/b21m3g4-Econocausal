@@ -49,6 +49,38 @@ def get_base_models(estimator_name, seed=42, hyperparams=None):
     return clf, reg
 
 
+# ---------------------------------------------------------------------------
+# Shared covariate selection used by DoubleMachineLearning.fit() AND
+# DoubleMachineLearning.predict_ite(). Defined ONCE here so both methods
+# are always guaranteed to use the identical column set -- this is what
+# caused the "Dimension mis-match of X with fitted X" crash: fit() and
+# predict_ite() had drifted out of sync when edited separately.
+#
+# These are the columns that drive HETEROGENEITY in the true_ite formula
+# in the data generator (see generator.py):
+#   - age, tenure_months, customer_segment  -> included from the start
+#   - previous_campaign_response, website_visits, days_since_last_purchase,
+#     historical_revenue -> also directly affect responsiveness/recency_effect
+#     in true_ite, so DML needs to see them to model heterogeneity well.
+# ---------------------------------------------------------------------------
+_HETEROGENEITY_NUMERIC_COLS = [
+    'age',
+    'tenure_months',
+    'previous_campaign_response',
+    'website_visits',
+    'days_since_last_purchase',
+    'historical_revenue',
+]
+
+
+def _get_covariate_cols(X):
+    """Return the covariate (heterogeneity) column list for a given X."""
+    return [
+        col for col in X.columns
+        if col in _HETEROGENEITY_NUMERIC_COLS or col.startswith('customer_segment')
+    ]
+
+
 class TLearner:
     """T-Learner (Two-Learner) for binary treatment and binary outcome."""
     def __init__(self, base_estimator="gradient_boosting", seed=42, hyperparams=None):
@@ -61,7 +93,7 @@ class TLearner:
     def fit(self, X, W, Y):
         clf_c, _ = get_base_models(self.base_estimator, self.seed, self.hyperparams)
         clf_t, _ = get_base_models(self.base_estimator, self.seed, self.hyperparams)
-        
+
         self.clf_control = clf_c.fit(X[W == 0], Y[W == 0])
         self.clf_treated = clf_t.fit(X[W == 1], Y[W == 1])
         return self
@@ -91,20 +123,20 @@ class XLearner:
         # Step 1: Train a T-Learner
         self.t_learner = TLearner(base_estimator=self.base_estimator, seed=self.seed, hyperparams=self.hyperparams)
         self.t_learner.fit(X, W, Y)
-        
+
         mu_0, mu_1 = self.t_learner.predict_potential_outcomes(X)
-        
+
         # Step 2: Impute treatment effects
         D_1 = Y[W == 1] - mu_0[W == 1]
         D_0 = mu_1[W == 0] - Y[W == 0]
-        
+
         # Train regression models to predict imputed effects
         _, reg_c = get_base_models(self.base_estimator, self.seed, self.hyperparams)
         _, reg_t = get_base_models(self.base_estimator, self.seed, self.hyperparams)
-        
+
         self.reg_effect_control = reg_c.fit(X[W == 0], D_0)
         self.reg_effect_treated = reg_t.fit(X[W == 1], D_1)
-        
+
         # Step 3: Train propensity model P(W=1 | X)
         prop_model, _ = get_base_models(self.base_estimator, self.seed, self.hyperparams)
         self.propensity_model = prop_model.fit(X, W)
@@ -116,7 +148,7 @@ class XLearner:
     def predict_ite(self, X):
         tau_0 = self.reg_effect_control.predict(X)
         tau_1 = self.reg_effect_treated.predict(X)
-        
+
         # Propensity score weighting
         e_x = self.propensity_model.predict_proba(X)[:, 1]
         return e_x * tau_0 + (1.0 - e_x) * tau_1
@@ -134,28 +166,30 @@ class DoubleMachineLearning:
     def fit(self, X, W, Y):
         try:
             from econml.dml import LinearDML
-            
+
             clf_t, _ = get_base_models(self.base_estimator, self.seed, self.hyperparams)
             _, reg_y = get_base_models(self.base_estimator, self.seed, self.hyperparams)
-            
+
             self.dml_model = LinearDML(
                 model_y=reg_y,
                 model_t=clf_t,
                 discrete_treatment=True,
                 random_state=self.seed
             )
-            
+
             if hasattr(X, "columns"):
-                covariate_cols = [col for col in X.columns if col in ['age', 'tenure_months']]
+                # IMPORTANT: covariate_cols is computed via _get_covariate_cols()
+                # so fit() and predict_ite() can never drift out of sync again.
+                covariate_cols = _get_covariate_cols(X)
                 confounder_cols = [col for col in X.columns if col not in ['age', 'tenure_months']]
                 X_cov = X[covariate_cols]
                 X_conf = X[confounder_cols]
             else:
                 X_cov = X
                 X_conf = X
-                
+
             self.dml_model.fit(Y, W, X=X_cov, W=X_conf)
-            
+
         except Exception as e:
             print(f"EconML initialization failed or not available ({e}). Falling back to T-Learner.")
             self.fallback_model = TLearner(base_estimator=self.base_estimator, seed=self.seed, hyperparams=self.hyperparams)
@@ -175,7 +209,8 @@ class DoubleMachineLearning:
     def predict_ite(self, X):
         if self.dml_model is not None:
             if hasattr(X, "columns"):
-                covariate_cols = [col for col in X.columns if col in ['age', 'tenure_months']]
+                # Same _get_covariate_cols() call as fit() -- guaranteed match.
+                covariate_cols = _get_covariate_cols(X)
                 X_cov = X[covariate_cols]
             else:
                 X_cov = X
@@ -190,7 +225,7 @@ class CausalModelWrapper:
         self.base_estimator = base_estimator
         self.seed = seed
         self.hyperparams = hyperparams
-        
+
         if model_type == "t_learner":
             self.estimator = TLearner(base_estimator=base_estimator, seed=seed, hyperparams=hyperparams)
         elif model_type == "x_learner":
