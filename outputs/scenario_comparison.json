@@ -1,0 +1,100 @@
+{
+    "25000": {
+        "causal": {
+            "customers_targeted": 1899,
+            "expected_profit": 43680.578669351875,
+            "expected_cost": 24972.010000000002,
+            "roi": 1.749181530415528
+        },
+        "random": {
+            "customers_targeted": 1165,
+            "expected_profit": 22655.602009466493,
+            "expected_cost": 24978.25,
+            "roi": 0.9070131818468665
+        }
+    },
+    "50000": {
+        "causal": {
+            "customers_targeted": 2868,
+            "expected_profit": 75866.20134016304,
+            "expected_cost": 49975.53,
+            "roi": 1.5180669687777806
+        },
+        "random": {
+            "customers_targeted": 2343,
+            "expected_profit": 45141.0807554498,
+            "expected_cost": 49982.579999999994,
+            "roi": 0.9031362677846924
+        }
+    },
+    "100000": {
+        "causal": {
+            "customers_targeted": 4707,
+            "expected_profit": 131248.3675148781,
+            "expected_cost": 99979.9,
+            "roi": 1.3127475374037993
+        },
+        "random": {
+            "customers_targeted": 4732,
+            "expected_profit": 90302.76847604563,
+            "expected_cost": 99981.35999999999,
+            "roi": 0.9031960405024061
+        }
+    },
+    "250000": {
+        "causal": {
+            "customers_targeted": 11601,
+            "expected_profit": 247950.06633837585,
+            "expected_cost": 249997.13,
+            "roi": 0.9918116513512609
+        },
+        "random": {
+            "customers_targeted": 11790,
+            "expected_profit": 226401.9906165154,
+            "expected_cost": 249981.39,
+            "roi": 0.9056753809414189
+        }
+    },
+    "500000": {
+        "causal": {
+            "customers_targeted": 12241,
+            "expected_profit": 251106.2234876198,
+            "expected_cost": 259294.16,
+            "roi": 0.9684222100783905
+        },
+        "random": {
+            "customers_targeted": 12271,
+            "expected_profit": 235007.10652370163,
+            "expected_cost": 259493.72999999998,
+            "roi": 0.9056369359047776
+        }
+    },
+    "1000000": {
+        "causal": {
+            "customers_targeted": 12241,
+            "expected_profit": 251106.2234876198,
+            "expected_cost": 259294.16,
+            "roi": 0.9684222100783905
+        },
+        "random": {
+            "customers_targeted": 12271,
+            "expected_profit": 235007.10652370163,
+            "expected_cost": 259493.72999999998,
+            "roi": 0.9056369359047776
+        }
+    },
+    "2500000": {
+        "causal": {
+            "customers_targeted": 12241,
+            "expected_profit": 251106.2234876198,
+            "expected_cost": 259294.16,
+            "roi": 0.9684222100783905
+        },
+        "random": {
+            "customers_targeted": 12271,
+            "expected_profit": 235007.10652370163,
+            "expected_cost": 259493.72999999998,
+            "roi": 0.9056369359047776
+        }
+    }
+}
