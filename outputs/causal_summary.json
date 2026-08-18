@@ -1,12 +1,12 @@
 {
-    "average_ite": 0.10793223154563847,
-    "median_ite": 0.0927680716403717,
-    "positive_ite_share": 0.9841296825936519,
-    "top_positive_ite": 0.6750076830718613,
-    "top_negative_ite": -0.6556795562140718,
-    "mae": 0.0836539698294438,
-    "rmse": 0.10433936409524021,
-    "correlation": 0.43248571344925524,
-    "qini_coefficient": 0.49366722527865636,
+    "average_ite": 0.10401011917788905,
+    "median_ite": 0.10128640893092986,
+    "positive_ite_share": 0.9539290785815716,
+    "top_positive_ite": 0.5577649589176247,
+    "top_negative_ite": -0.1879077638523005,
+    "mae": 0.07884215747314643,
+    "rmse": 0.09422683514771407,
+    "correlation": 0.5039856845347926,
+    "qini_coefficient": 0.4659183014272768,
     "n_customers": 99998
 }

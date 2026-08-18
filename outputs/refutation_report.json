@@ -1,27 +1,27 @@
 {
-    "original_mean_ite": 0.10401011917788916,
+    "original_mean_ite": 0.10401011917788909,
     "tests": [
         {
             "test": "placebo_treatment",
-            "original_mean_ite": 0.10401011917788916,
-            "placebo_mean_ite": 1.6788049800666994e-05,
+            "original_mean_ite": 0.10401011917788909,
+            "placebo_mean_ite": 1.6788049800672625e-05,
             "passed": true,
             "interpretation": "Placebo effect is small relative to original estimate \u2014 supports that the original estimate reflects a real signal."
         },
         {
             "test": "random_common_cause",
-            "original_mean_ite": 0.10401011917788916,
-            "noisy_mean_ite": 0.10428450206031017,
-            "percent_change": 0.0026380402655989277,
+            "original_mean_ite": 0.10401011917788909,
+            "noisy_mean_ite": 0.10428450206031019,
+            "percent_change": 0.00263804026559973,
             "passed": true,
             "interpretation": "Estimate is stable after adding random noise \u2014 supports robustness."
         },
         {
             "test": "data_subset",
             "subset_fraction": 0.8,
-            "original_mean_ite": 0.10401011917788916,
+            "original_mean_ite": 0.10401011917788909,
             "subset_mean_ite": 0.10520281766510929,
-            "percent_change": 0.011467138934628578,
+            "percent_change": 0.011467138934629252,
             "passed": true,
             "interpretation": "Estimate is stable on a data subset \u2014 supports robustness."
         }
