@@ -1,21 +1,19 @@
 {
-    "model_type": "t_learner",
-    "base_estimator": "gradient_boosting",
+    "model_type": "dml",
+    "base_estimator": "lightgbm",
     "seed": 42,
     "hyperparameters": {
         "n_estimators": 100,
         "max_depth": 4,
-        "min_samples_split": 10,
         "learning_rate": 0.1
     },
-    "trained_at": "2026-08-12T17:20:55.011866Z",
+    "trained_at": "2026-08-18T16:28:54.903602Z",
     "features": {
-        "categorical_covariates": [
-            "customer_segment"
-        ],
-        "numeric_covariates": [
+        "covariates": [
             "age",
-            "tenure_months",
+            "tenure_months"
+        ],
+        "confounders": [
             "historical_orders",
             "historical_revenue",
             "avg_order_value",
@@ -23,21 +21,22 @@
             "website_visits",
             "email_opens",
             "email_clicks",
-            "previous_campaign_response"
+            "previous_campaign_response",
+            "customer_segment"
         ],
-        "outcome": "purchase",
-        "treatment": "treatment_received"
+        "treatment": "treatment_received",
+        "outcome": "purchase"
     },
     "preprocessing_warnings": [],
     "evaluation_metrics": {
-        "mae": 0.0836539698294438,
-        "rmse": 0.10433936409524021,
-        "correlation": 0.43248571344925524,
-        "qini_coefficient": 0.49366722527865636
+        "mae": 0.07884215747314643,
+        "rmse": 0.09422683514771407,
+        "correlation": 0.5039856845347926,
+        "qini_coefficient": 0.4659183014272768
     },
     "aggregate_estimates": {
-        "average_ite": 0.10793223154563847,
-        "median_ite": 0.0927680716403717,
-        "positive_ite_share": 0.9841296825936519
+        "average_ite": 0.10401011917788905,
+        "median_ite": 0.10128640893092986,
+        "positive_ite_share": 0.9539290785815716
     }
 }
