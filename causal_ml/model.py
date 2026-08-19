@@ -3,6 +3,7 @@ EconoCausal - Causal ML Model Implementations
 """
 
 import numpy as np
+import pandas as pd
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor, GradientBoostingClassifier, GradientBoostingRegressor
 from sklearn.linear_model import LogisticRegression, Ridge
 
@@ -53,8 +54,8 @@ def get_base_models(estimator_name, seed=42, hyperparams=None):
 # Shared covariate selection used by DoubleMachineLearning.fit() AND
 # DoubleMachineLearning.predict_ite(). Defined ONCE here so both methods
 # are always guaranteed to use the identical column set -- this is what
-# caused the "Dimension mis-match of X with fitted X" crash: fit() and
-# predict_ite() had drifted out of sync when edited separately.
+# caused the earlier "Dimension mis-match of X with fitted X" crash: fit()
+# and predict_ite() had drifted out of sync when edited separately.
 #
 # These are the columns that drive HETEROGENEITY in the true_ite formula
 # in the data generator (see generator.py):
@@ -71,6 +72,8 @@ _HETEROGENEITY_NUMERIC_COLS = [
     'days_since_last_purchase',
     'historical_revenue',
 ]
+
+_TREATMENT_COL_NAME = '__treatment__'
 
 
 def _get_covariate_cols(X):
@@ -162,6 +165,11 @@ class DoubleMachineLearning:
         self.hyperparams = hyperparams
         self.dml_model = None
         self.fallback_model = None
+        # Auxiliary outcome model used ONLY to estimate baseline/treatment
+        # probability (see fit()/predict_potential_outcomes() below). It
+        # does NOT affect the CATE/ITE estimate from dml_model.effect().
+        self.outcome_model = None
+        self._outcome_model_columns = None
 
     def fit(self, X, W, Y):
         try:
@@ -190,17 +198,62 @@ class DoubleMachineLearning:
 
             self.dml_model.fit(Y, W, X=X_cov, W=X_conf)
 
+            # -----------------------------------------------------------
+            # OPTION A FIX: LinearDML.effect() gives us the CATE (ITE)
+            # directly, but does not give us baseline/treatment purchase
+            # probabilities on its own. Previously predict_potential_outcomes()
+            # returned NaN for DML, which silently propagated into
+            # downstream outputs (recommendations.json -> expected_conversion
+            # was NaN for all 99,998 customers).
+            #
+            # Fix: train a SEPARATE auxiliary classifier that predicts the
+            # outcome (Y) directly from [all covariates/confounders + the
+            # treatment indicator as a feature]. At prediction time, we
+            # query this classifier twice per customer -- once with
+            # treatment forced to 0 (baseline) and once forced to 1
+            # (treated) -- using the SAME customer covariates both times.
+            # This gives real, non-NaN probability estimates.
+            #
+            # This auxiliary model is fully independent of dml_model, so
+            # it has NO effect on the ITE/CATE estimate used elsewhere
+            # (predict_ite() still uses dml_model.effect() unchanged).
+            # -----------------------------------------------------------
+            if hasattr(X, "columns"):
+                outcome_clf, _ = get_base_models(self.base_estimator, self.seed, self.hyperparams)
+                X_for_outcome = X.copy()
+                X_for_outcome[_TREATMENT_COL_NAME] = np.asarray(W)
+                self._outcome_model_columns = X_for_outcome.columns.tolist()
+                outcome_clf.fit(X_for_outcome, Y)
+                self.outcome_model = outcome_clf
+
         except Exception as e:
             print(f"EconML initialization failed or not available ({e}). Falling back to T-Learner.")
+            self.dml_model = None
+            self.outcome_model = None
             self.fallback_model = TLearner(base_estimator=self.base_estimator, seed=self.seed, hyperparams=self.hyperparams)
             self.fallback_model.fit(X, W, Y)
         return self
 
     def predict_potential_outcomes(self, X):
         if self.dml_model is not None:
-            # LinearDML directly estimates CATE (Conditional Average Treatment Effect)
-            # and does not independently estimate counterfactual outcome probabilities.
-            # Return NaN to avoid fabricating baseline/treatment probabilities.
+            if self.outcome_model is not None and hasattr(X, "columns"):
+                X_control = X.copy()
+                X_control[_TREATMENT_COL_NAME] = 0
+                X_treated = X.copy()
+                X_treated[_TREATMENT_COL_NAME] = 1
+
+                # Ensure column order matches what the outcome model was
+                # trained on.
+                X_control = X_control[self._outcome_model_columns]
+                X_treated = X_treated[self._outcome_model_columns]
+
+                mu_0 = self.outcome_model.predict_proba(X_control)[:, 1]
+                mu_1 = self.outcome_model.predict_proba(X_treated)[:, 1]
+                return mu_0, mu_1
+
+            # Fallback: if outcome_model wasn't trained for some reason
+            # (e.g. X had no .columns), return NaN rather than fabricating
+            # values, same as before.
             n_samples = len(X)
             nan_probs = np.full(n_samples, np.nan)
             return nan_probs, nan_probs
