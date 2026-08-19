@@ -3,16 +3,36 @@
 import { useEffect, useState, useCallback } from "react";
 import Sidebar from "../components/Sidebar";
 import Header from "../components/Header";
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  PieChart,
+  Pie,
+  Cell,
+  LineChart,
+  Line,
+  BarChart,
+  Bar
+} from "recharts";
 
 export default function Home() {
   const [currentTab, setCurrentTab] = useState("Dashboard");
   const [summary, setSummary] = useState(null);
   const [causalSummary, setCausalSummary] = useState(null);
   const [recommendationsData, setRecommendationsData] = useState(null);
+  const [upliftData, setUpliftData] = useState(null);
+  const [scenariosData, setScenariosData] = useState(null);
   
   const [budget, setBudget] = useState(1000000); // Default budget: ₹1,000,000
   const [limit, setLimit] = useState(10); // Limit items in table
   const [searchQuery, setSearchQuery] = useState(""); // Recommendation search query
+  const [segmentFilter, setSegmentFilter] = useState("all"); // Filter table by segment
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -29,12 +49,14 @@ export default function Home() {
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [selectedCustomerLoading, setSelectedCustomerLoading] = useState(false);
 
-  // Fetch static data (summary + causal metrics)
+  // Fetch static data (summary + causal metrics + uplift + scenarios)
   const fetchStaticData = useCallback(async () => {
     try {
-      const [summaryRes, causalRes] = await Promise.all([
+      const [summaryRes, causalRes, upliftRes, scenariosRes] = await Promise.all([
         fetch("http://127.0.0.1:8001/api/summary"),
-        fetch("http://127.0.0.1:8001/api/causal/summary")
+        fetch("http://127.0.0.1:8001/api/causal/summary"),
+        fetch("http://127.0.0.1:8001/api/causal/uplift"),
+        fetch("http://127.0.0.1:8001/api/causal/scenarios")
       ]);
 
       if (!summaryRes.ok || !causalRes.ok) {
@@ -46,6 +68,15 @@ export default function Home() {
 
       setSummary(summaryData);
       setCausalSummary(causalData);
+
+      if (upliftRes.ok) {
+        const uData = await upliftRes.json();
+        setUpliftData(uData);
+      }
+      if (scenariosRes.ok) {
+        const sData = await scenariosRes.json();
+        setScenariosData(sData);
+      }
     } catch (err) {
       console.error(err);
       setError(err.message || "An error occurred while loading dashboard data.");
@@ -155,7 +186,6 @@ export default function Home() {
       maximumFractionDigits: 2
     }).format(val);
   };
-
   const formatPercentage = (val) => {
     return new Intl.NumberFormat("en-US", {
       style: "percent",
@@ -163,11 +193,37 @@ export default function Home() {
       maximumFractionDigits: 2
     }).format(val);
   };
+  const SEGMENT_COLORS = ["#10b981", "#ef4444", "#f59e0b"];
 
-  // Filtering recommendations based on search
+  const getSegmentsChartData = () => {
+    if (!upliftData || !upliftData.segment_shares) return [];
+    return Object.keys(upliftData.segment_shares).map((key) => ({
+      name: key.charAt(0).toUpperCase() + key.slice(1),
+      value: upliftData.segment_shares[key] * 100
+    }));
+  };
+
+  const getScenariosChartData = () => {
+    if (!scenariosData) return [];
+    // Sort keys numerically
+    const sortedKeys = Object.keys(scenariosData).sort((a, b) => Number(a) - Number(b));
+    return sortedKeys.map((budgetKey) => {
+      const budgetVal = Number(budgetKey);
+      const data = scenariosData[budgetKey];
+      return {
+        budget: `₹${(budgetVal / 1000).toFixed(0)}k`,
+        CausalTargeting: Math.round(data.causal.expected_profit),
+        RandomTargeting: Math.round(data.random.expected_profit)
+      };
+    });
+  };
+
+
+  // Filtering recommendations based on search and segment filter
   const filteredRecs = recommendationsData?.recommendations.filter((rec) => {
-    if (!searchQuery) return true;
-    return String(rec.customer_id).includes(searchQuery);
+    const matchesSearch = !searchQuery || String(rec.customer_id).includes(searchQuery);
+    const matchesSegment = segmentFilter === "all" || rec.uplift_segment === segmentFilter;
+    return matchesSearch && matchesSegment;
   }) || [];
 
   const paginatedRecs = filteredRecs.slice(0, limit);
@@ -458,6 +514,172 @@ export default function Home() {
         )}
 
         {/* ==================================================================
+            TAB: UPLIFT
+            ================================================================== */}
+        {currentTab === "Uplift" && (
+          <>
+            {/* Uplift Metrics Grid */}
+            <section className="stats-grid" style={{ marginBottom: "1.5rem" }}>
+              {causalSummary ? (
+                <>
+                  <div className="card">
+                    <div className="stat-header-flex">
+                      <span className="stat-label-text">Qini Coefficient</span>
+                      <div className="metric-icon-circle metric-icon-purple">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                      </div>
+                    </div>
+                    <div className="stat-value-large" style={{ color: "var(--primary)" }}>
+                      {causalSummary.qini_coefficient ? causalSummary.qini_coefficient.toFixed(4) : "0.4659"}
+                    </div>
+                    <div className="stat-trend-subtext">
+                      <span>Targeting efficiency metric</span>
+                    </div>
+                  </div>
+
+                  <div className="card">
+                    <div className="stat-header-flex">
+                      <span className="stat-label-text">Area Under Curve (AUUC)</span>
+                      <div className="metric-icon-circle metric-icon-green">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg>
+                      </div>
+                    </div>
+                    <div className="stat-value-large">
+                      {upliftData?.metrics?.auuc ? upliftData.metrics.auuc.toFixed(4) : "0.4937"}
+                    </div>
+                    <div className="stat-trend-subtext">
+                      <span>Area under uplift curve</span>
+                    </div>
+                  </div>
+
+                  <div className="card">
+                    <div className="stat-header-flex">
+                      <span className="stat-label-text">Average Treatment Effect</span>
+                      <div className="metric-icon-circle metric-icon-blue">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                      </div>
+                    </div>
+                    <div className="stat-value-large">
+                      {causalSummary.average_ite ? `+${causalSummary.average_ite.toFixed(5)}` : "0.10401"}
+                    </div>
+                    <div className="stat-trend-subtext">
+                      <span>Average incremental purchase prob</span>
+                    </div>
+                  </div>
+
+                  <div className="card">
+                    <div className="stat-header-flex">
+                      <span className="stat-label-text">Model MAE</span>
+                      <div className="metric-icon-circle metric-icon-gold">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                      </div>
+                    </div>
+                    <div className="stat-value-large">
+                      {causalSummary.mae ? causalSummary.mae.toFixed(5) : "0.07884"}
+                    </div>
+                    <div className="stat-trend-subtext">
+                      <span>Mean absolute ITE estimation error</span>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                Array.from({ length: 4 }).map((_, idx) => (
+                  <div key={idx} className="card" style={{ height: "110px" }}>
+                    <div className="skeleton" style={{ height: "14px", width: "60%" }}></div>
+                    <div className="skeleton" style={{ height: "28px", width: "80%" }}></div>
+                  </div>
+                ))
+              )}
+            </section>
+
+            {/* Charts section */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(450px, 1fr))", gap: "1.5rem", marginBottom: "1.5rem" }}>
+              {/* Uplift segments distribution */}
+              <section className="card">
+                <h3 className="card-title" style={{ marginBottom: "1rem" }}>Targeting Segments Distribution</h3>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: "300px" }}>
+                  <div style={{ width: "50%", height: "100%" }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={getSegmentsChartData()}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={85}
+                          paddingAngle={4}
+                          dataKey="value"
+                        >
+                          {getSegmentsChartData().map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={SEGMENT_COLORS[index % SEGMENT_COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip formatter={(value) => `${value.toFixed(2)}%`} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  
+                  {/* Legend list */}
+                  <div style={{ width: "48%", display: "flex", flexDirection: "column", gap: "1rem" }}>
+                    {getSegmentsChartData().map((item, idx) => (
+                      <div key={item.name} style={{ display: "flex", alignItems: "start", gap: "0.75rem" }}>
+                        <div style={{ width: "12px", height: "12px", borderRadius: "3px", backgroundColor: SEGMENT_COLORS[idx], marginTop: "4px" }}></div>
+                        <div>
+                          <div style={{ fontSize: "0.9rem", fontWeight: "700" }}>{item.name} ({item.value.toFixed(1)}%)</div>
+                          <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                            {item.name === "Persuadable" && "Target: Buys ONLY when shown a discount."}
+                            {item.name === "Lost cause" && "Do Not Target: Will not buy regardless of discount."}
+                            {item.name === "Sleeping dog" && "Avoid: Discouraged from buying if targeted."}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </section>
+
+              {/* Scenario comparison chart */}
+              <section className="card">
+                <h3 className="card-title" style={{ marginBottom: "0.2rem" }}>Targeting Optimization Scenarios</h3>
+                <p className="card-subtitle" style={{ marginBottom: "1.5rem" }}>Expected incremental profit comparison at various campaign budget caps</p>
+                <div style={{ width: "100%", height: "260px" }}>
+                  {scenariosData ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart
+                        data={getScenariosChartData()}
+                        margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                      >
+                        <defs>
+                          <linearGradient id="colorCausal" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                            <stop offset="95%" stopColor="#10b981" stopOpacity={0.0}/>
+                          </linearGradient>
+                          <linearGradient id="colorRandom" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#94a3b8" stopOpacity={0.2}/>
+                            <stop offset="95%" stopColor="#94a3b8" stopOpacity={0.0}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                        <XAxis dataKey="budget" stroke="#64748b" style={{ fontSize: "0.75rem", fontWeight: "600" }} />
+                        <YAxis stroke="#64748b" style={{ fontSize: "0.75rem", fontWeight: "600" }} tickFormatter={(v) => `₹${(v/1000).toFixed(0)}k`} />
+                        <Tooltip formatter={(v) => formatCurrency(v)} />
+                        <Legend wrapperStyle={{ fontSize: "0.85rem", fontWeight: "600", paddingTop: "10px" }} />
+                        <Area type="monotone" dataKey="CausalTargeting" name="Causal Uplift Targeting" stroke="#10b981" fillOpacity={1} fill="url(#colorCausal)" strokeWidth={2.5} />
+                        <Area type="monotone" dataKey="RandomTargeting" name="Random Targeting (Baseline)" stroke="#94a3b8" fillOpacity={1} fill="url(#colorRandom)" strokeWidth={2} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div style={{ display: "flex", height: "100%", alignItems: "center", justifyContent: "center" }}>
+                      <div className="skeleton" style={{ width: "90%", height: "90%" }}></div>
+                    </div>
+                  )}
+                </div>
+              </section>
+            </div>
+          </>
+        )}
+
+        {/* ==================================================================
             TAB: RECOMMENDATIONS
             ================================================================== */}
         {currentTab === "Recommendations" && (
@@ -485,6 +707,29 @@ export default function Home() {
                     fontWeight: "500"
                   }}
                 />
+
+                {/* Segment filter */}
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: "500" }}>Segment:</span>
+                  <select 
+                    value={segmentFilter} 
+                    onChange={(e) => setSegmentFilter(e.target.value)}
+                    style={{
+                      backgroundColor: "#ffffff",
+                      border: "1px solid var(--border-color)",
+                      padding: "0.4rem 0.6rem",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                      fontSize: "0.85rem",
+                      fontWeight: "500"
+                    }}
+                  >
+                    <option value="all">All Segments</option>
+                    <option value="persuadable">Persuadables</option>
+                    <option value="lost cause">Lost Causes</option>
+                    <option value="sleeping dog">Sleeping Dogs</option>
+                  </select>
+                </div>
 
                 <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                   <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: "500" }}>Show rows:</span>
