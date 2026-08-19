@@ -26,6 +26,7 @@ class RecommendationItem(BaseModel):
     recommended_discount: float
     expected_profit: float
     expected_cost: float
+    uplift_segment: str
 
 
 class RecommendationListResponse(BaseModel):

@@ -44,8 +44,9 @@ def causal_ite(limit: int = Query(default=10, ge=1, le=100)) -> list[dict]:
 def recommendations(
     budget: float = Query(default=1000000.0, ge=0),
     limit: int = Query(default=25, ge=1, le=100),
+    segment: str | None = Query(default=None),
 ) -> RecommendationListResponse:
-    return build_recommendations(budget=budget, limit=limit)
+    return build_recommendations(budget=budget, limit=limit, segment=segment)
 
 
 from pydantic import BaseModel

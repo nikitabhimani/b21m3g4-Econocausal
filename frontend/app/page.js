@@ -88,10 +88,11 @@ export default function Home() {
   }, [fetchStaticData]);
 
   // Fetch dynamic recommendations based on budget/limit
-  const fetchRecommendations = useCallback(async (currentBudget, currentLimit) => {
+  const fetchRecommendations = useCallback(async (currentBudget, currentLimit, segment = "all") => {
     try {
+      const segmentParam = segment !== "all" ? `&segment=${segment}` : "";
       const res = await fetch(
-        `http://127.0.0.1:8001/api/recommendations?budget=${currentBudget}&limit=100` // fetch 100 for search/paging
+        `http://127.0.0.1:8001/api/recommendations?budget=${currentBudget}&limit=100${segmentParam}` // fetch 100 for search/paging
       );
       if (!res.ok) {
         throw new Error("Failed to fetch recommendations.");
@@ -106,10 +107,10 @@ export default function Home() {
     }
   }, []);
 
-  // Fetch recommendations when budget or limit changes
+  // Fetch recommendations when budget, limit, or segment filter changes
   useEffect(() => {
-    fetchRecommendations(budget, limit);
-  }, [budget, limit, fetchRecommendations]);
+    fetchRecommendations(budget, limit, segmentFilter);
+  }, [budget, limit, segmentFilter, fetchRecommendations]);
 
   const handleBudgetChange = (e) => {
     setBudget(Number(e.target.value));
