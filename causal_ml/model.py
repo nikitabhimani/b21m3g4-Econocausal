@@ -162,6 +162,8 @@ class DoubleMachineLearning:
         self.hyperparams = hyperparams
         self.dml_model = None
         self.fallback_model = None
+        self.potential_outcome_model = None
+        self.potential_outcome_columns = None
 
     def fit(self, X, W, Y):
         try:
@@ -190,6 +192,19 @@ class DoubleMachineLearning:
 
             self.dml_model.fit(Y, W, X=X_cov, W=X_conf)
 
+            # LinearDML estimates treatment effects, not potential outcome
+            # probabilities.  Train a separate outcome classifier so the
+            # prediction contract can still provide finite P(Y|T=0, X) and
+            # P(Y|T=1, X) values without altering DML's ITE estimate.
+            outcome_model, _ = get_base_models(self.base_estimator, self.seed, self.hyperparams)
+            if hasattr(X, "copy") and hasattr(X, "columns"):
+                outcome_features = X.copy()
+                outcome_features["__treatment__"] = W.values if hasattr(W, "values") else W
+                self.potential_outcome_columns = list(outcome_features.columns)
+            else:
+                outcome_features = np.column_stack((X, W))
+            self.potential_outcome_model = outcome_model.fit(outcome_features, Y)
+
         except Exception as e:
             print(f"EconML initialization failed or not available ({e}). Falling back to T-Learner.")
             self.fallback_model = TLearner(base_estimator=self.base_estimator, seed=self.seed, hyperparams=self.hyperparams)
@@ -198,12 +213,20 @@ class DoubleMachineLearning:
 
     def predict_potential_outcomes(self, X):
         if self.dml_model is not None:
-            # LinearDML directly estimates CATE (Conditional Average Treatment Effect)
-            # and does not independently estimate counterfactual outcome probabilities.
-            # Return NaN to avoid fabricating baseline/treatment probabilities.
-            n_samples = len(X)
-            nan_probs = np.full(n_samples, np.nan)
-            return nan_probs, nan_probs
+            if hasattr(X, "copy") and hasattr(X, "columns"):
+                control_features = X.copy()
+                treated_features = X.copy()
+                control_features["__treatment__"] = 0
+                treated_features["__treatment__"] = 1
+                control_features = control_features[self.potential_outcome_columns]
+                treated_features = treated_features[self.potential_outcome_columns]
+            else:
+                control_features = np.column_stack((X, np.zeros(len(X))))
+                treated_features = np.column_stack((X, np.ones(len(X))))
+            return (
+                self.potential_outcome_model.predict_proba(control_features)[:, 1],
+                self.potential_outcome_model.predict_proba(treated_features)[:, 1],
+            )
         return self.fallback_model.predict_potential_outcomes(X)
 
     def predict_ite(self, X):

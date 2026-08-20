@@ -3,23 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Sidebar from "../components/Sidebar";
 import Header from "../components/Header";
-import {
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  PieChart,
-  Pie,
-  Cell,
-  LineChart,
-  Line,
-  BarChart,
-  Bar
-} from "recharts";
+import { apiJson, apiUrl } from "../lib/api";
 
 export default function Home() {
   const [currentTab, setCurrentTab] = useState("Dashboard");
@@ -27,13 +11,13 @@ export default function Home() {
   const [causalSummary, setCausalSummary] = useState(null);
   const [recommendationsData, setRecommendationsData] = useState(null);
   const [upliftData, setUpliftData] = useState(null);
-  const [scenariosData, setScenariosData] = useState(null);
-  
+  const [iteCustomers, setIteCustomers] = useState([]);
+
   const [budget, setBudget] = useState(1000000); // Default budget: ₹1,000,000
   const [limit, setLimit] = useState(10); // Limit items in table
   const [searchQuery, setSearchQuery] = useState(""); // Recommendation search query
   const [segmentFilter, setSegmentFilter] = useState("all"); // Filter table by segment
-  
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -52,31 +36,16 @@ export default function Home() {
   // Fetch static data (summary + causal metrics + uplift + scenarios)
   const fetchStaticData = useCallback(async () => {
     try {
-      const [summaryRes, causalRes, upliftRes, scenariosRes] = await Promise.all([
-        fetch("http://127.0.0.1:8001/api/summary"),
-        fetch("http://127.0.0.1:8001/api/causal/summary"),
-        fetch("http://127.0.0.1:8001/api/causal/uplift"),
-        fetch("http://127.0.0.1:8001/api/causal/scenarios")
+      const [summaryData, causalData, upliftPayload, iteData] = await Promise.all([
+        apiJson("summary"),
+        apiJson("causal/summary"),
+        apiJson("uplift"),
+        apiJson("causal/ite?limit=10")
       ]);
-
-      if (!summaryRes.ok || !causalRes.ok) {
-        throw new Error("Failed to fetch initial summary data.");
-      }
-
-      const summaryData = await summaryRes.json();
-      const causalData = await causalRes.json();
-
       setSummary(summaryData);
       setCausalSummary(causalData);
-
-      if (upliftRes.ok) {
-        const uData = await upliftRes.json();
-        setUpliftData(uData);
-      }
-      if (scenariosRes.ok) {
-        const sData = await scenariosRes.json();
-        setScenariosData(sData);
-      }
+      setUpliftData(upliftPayload);
+      setIteCustomers(iteData);
     } catch (err) {
       console.error(err);
       setError(err.message || "An error occurred while loading dashboard data.");
@@ -90,14 +59,7 @@ export default function Home() {
   // Fetch dynamic recommendations based on budget/limit
   const fetchRecommendations = useCallback(async (currentBudget, currentLimit, segment = "all") => {
     try {
-      const segmentParam = segment !== "all" ? `&segment=${segment}` : "";
-      const res = await fetch(
-        `http://127.0.0.1:8001/api/recommendations?budget=${currentBudget}&limit=100${segmentParam}` // fetch 100 for search/paging
-      );
-      if (!res.ok) {
-        throw new Error("Failed to fetch recommendations.");
-      }
-      const data = await res.json();
+      const data = await apiJson(`recommendations?budget=${currentBudget}&limit=100`);
       setRecommendationsData(data);
     } catch (err) {
       console.error(err);
@@ -125,7 +87,7 @@ export default function Home() {
     setError(null);
 
     try {
-      const res = await fetch("http://127.0.0.1:8001/api/causal/retrain", {
+      const res = await fetch(apiUrl("causal/retrain"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -142,7 +104,7 @@ export default function Home() {
       const updatedCausalSummary = await res.json();
       setCausalSummary(updatedCausalSummary);
       setRetrainSuccess(true);
-      
+
       // Refresh recommendations and general summary
       await Promise.all([
         fetchStaticData(),
@@ -166,7 +128,7 @@ export default function Home() {
     setSelectedCustomerLoading(true);
     setSelectedCustomer(null);
     try {
-      const res = await fetch(`http://127.0.0.1:8001/api/customers/${customerId}`);
+      const res = await fetch(apiUrl(`customers/${customerId}`));
       if (res.ok) {
         const data = await res.json();
         setSelectedCustomer(data);
@@ -345,7 +307,7 @@ export default function Home() {
             {/* 2-Column Dashboard Panels */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "1.5rem" }}>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "1.5rem", alignItems: "start" }}>
-                
+
                 {/* Left Side: Simulator and Summary Info */}
                 <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
                   <section className="slider-panel">
@@ -378,9 +340,9 @@ export default function Home() {
                     </div>
 
                     {recommendationsData && (
-                      <div style={{ 
-                        display: "grid", 
-                        gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", 
+                      <div style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
                         gap: "1rem",
                         marginTop: "0.5rem",
                         paddingTop: "1.25rem",
@@ -410,7 +372,7 @@ export default function Home() {
                         <div>
                           <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: "600" }}>Projected ROI</div>
                           <div style={{ fontSize: "1.35rem", fontWeight: "750", color: "#3b82f6", marginTop: "0.2rem" }}>
-                            {recommendationsData.total_expected_cost > 0 
+                            {recommendationsData.total_expected_cost > 0
                               ? `${(recommendationsData.total_expected_profit / recommendationsData.total_expected_cost).toFixed(2)}x`
                               : "0.00x"
                             }
@@ -512,6 +474,72 @@ export default function Home() {
               </div>
             </div>
           </>
+        )}
+
+        {currentTab === "Causal Insights" && (
+          <section className="card table-card">
+            <div className="card-title-section">
+              <div>
+                <h2 className="card-title">Causal Insights</h2>
+                <p className="card-subtitle">Model quality and the customers with the strongest estimated treatment effect.</p>
+              </div>
+            </div>
+            {causalSummary ? (
+              <>
+                <div className="stats-grid" style={{ marginBottom: "1.5rem" }}>
+                  {[
+                    ["Average ITE", causalSummary.average_ite.toFixed(4)],
+                    ["Qini coefficient", causalSummary.qini_coefficient.toFixed(4)],
+                    ["Correlation", causalSummary.correlation.toFixed(4)],
+                    ["Positive ITE share", formatPercentage(causalSummary.positive_ite_share)]
+                  ].map(([label, value]) => (
+                    <div className="card" key={label}><div className="stat-label-text">{label}</div><div className="stat-value-large">{value}</div></div>
+                  ))}
+                </div>
+                <div className="table-container">
+                  <table className="data-table">
+                    <thead><tr><th>Customer</th><th>Baseline probability</th><th>Treatment probability</th><th>ITE</th></tr></thead>
+                    <tbody>{iteCustomers.map((customer) => (
+                      <tr key={customer.customer_id}><td>{customer.customer_id}</td><td>{formatPercentage(customer.baseline_probability)}</td><td>{formatPercentage(customer.treatment_probability)}</td><td>{customer.ite.toFixed(4)}</td></tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+              </>
+            ) : <div className="skeleton" style={{ height: "240px" }} />}
+          </section>
+        )}
+
+        {currentTab === "Uplift Analysis" && (
+          <section className="card table-card">
+            <div className="card-title-section"><div><h2 className="card-title">Uplift Analysis</h2><p className="card-subtitle">Customer segments and targeting performance from the generated uplift artifact.</p></div></div>
+            {upliftData ? (
+              <div className="stats-grid">
+                {Object.entries(upliftData.results.segment_shares).map(([segment, share]) => (
+                  <div className="card" key={segment}>
+                    <div className="stat-label-text">{segment}</div>
+                    <div className="stat-value-large">{formatPercentage(share)}</div>
+                    <div style={{ background: "var(--primary-glow)", borderRadius: "999px", height: "8px", marginTop: "1rem" }}><div style={{ background: "var(--primary)", borderRadius: "999px", height: "100%", width: `${Math.min(share * 100, 100)}%` }} /></div>
+                    <div className="stat-trend-subtext">{upliftData.results.segment_counts[segment].toLocaleString()} customers</div>
+                  </div>
+                ))}
+                <div className="card"><div className="stat-label-text">AUUC / Qini</div><div className="stat-value-large">{upliftData.results.metrics.qini_coefficient.toFixed(4)}</div><div className="stat-trend-subtext">MAE {upliftData.results.metrics.mae.toFixed(4)}</div></div>
+              </div>
+            ) : <div className="skeleton" style={{ height: "240px" }} />}
+          </section>
+        )}
+
+        {currentTab === "Optimization" && (
+          <section className="card table-card">
+            <div className="card-title-section"><div><h2 className="card-title">Budget Optimization</h2><p className="card-subtitle">Causal targeting compared with random targeting at each approved campaign budget.</p></div></div>
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1rem" }}>
+              {[25000, 50000, 100000, 250000].map((amount) => <button className="button-secondary" key={amount} onClick={() => handleBudgetChange({ target: { value: amount } })}>₹{amount.toLocaleString()}</button>)}
+            </div>
+            {upliftData ? (
+              <div className="table-container"><table className="data-table"><thead><tr><th>Budget</th><th>Causal profit</th><th>Causal ROI</th><th>Random profit</th><th>Random ROI</th></tr></thead><tbody>
+                {Object.entries(upliftData.scenarios).map(([scenarioBudget, scenario]) => <tr key={scenarioBudget}><td>₹{Number(scenarioBudget).toLocaleString()}</td><td>{formatCurrency(scenario.causal.expected_profit)}</td><td>{scenario.causal.roi.toFixed(2)}</td><td>{formatCurrency(scenario.random.expected_profit)}</td><td>{scenario.random.roi.toFixed(2)}</td></tr>)}
+              </tbody></table></div>
+            ) : <div className="skeleton" style={{ height: "240px" }} />}
+          </section>
         )}
 
         {/* ==================================================================
@@ -619,7 +647,7 @@ export default function Home() {
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
-                  
+
                   {/* Legend list */}
                   <div style={{ width: "48%", display: "flex", flexDirection: "column", gap: "1rem" }}>
                     {getSegmentsChartData().map((item, idx) => (
@@ -712,8 +740,8 @@ export default function Home() {
                 {/* Segment filter */}
                 <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                   <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: "500" }}>Segment:</span>
-                  <select 
-                    value={segmentFilter} 
+                  <select
+                    value={segmentFilter}
                     onChange={(e) => setSegmentFilter(e.target.value)}
                     style={{
                       backgroundColor: "#ffffff",
@@ -734,8 +762,8 @@ export default function Home() {
 
                 <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                   <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: "500" }}>Show rows:</span>
-                  <select 
-                    value={limit} 
+                  <select
+                    value={limit}
                     onChange={(e) => {
                       setLimit(Number(e.target.value));
                       setLoading(true);
@@ -780,13 +808,13 @@ export default function Home() {
                   </thead>
                   <tbody>
                     {paginatedRecs.map((rec) => {
-                      const roi = rec.expected_cost > 0 
+                      const roi = rec.expected_cost > 0
                         ? (rec.expected_profit / rec.expected_cost).toFixed(2)
                         : "0.0";
-                      
+
                       return (
-                        <tr 
-                          key={rec.customer_id} 
+                        <tr
+                          key={rec.customer_id}
                           onClick={() => handleRowClick(rec.customer_id)}
                           className="table-row-interactive"
                         >
@@ -826,7 +854,7 @@ export default function Home() {
 
             <div style={{ display: "flex", justifySelf: "flex-end", justifyContent: "space-between", alignItems: "center", fontSize: "0.85rem", color: "var(--text-muted)", marginTop: "0.5rem" }}>
               <span>Showing {paginatedRecs.length} of {filteredRecs.length} customers</span>
-              <button 
+              <button
                 className="custom-button custom-button-secondary"
                 style={{ padding: "0.4rem 0.85rem", borderRadius: "6px", fontSize: "0.8rem", fontWeight: "600" }}
                 onClick={() => {
@@ -873,8 +901,8 @@ export default function Home() {
               <form onSubmit={handleRetrainSubmit}>
                 <div className="form-group">
                   <label className="form-label">Causal Estimator Type</label>
-                  <select 
-                    value={modelType} 
+                  <select
+                    value={modelType}
                     onChange={(e) => setModelType(e.target.value)}
                     className="form-control form-select"
                   >
@@ -886,8 +914,8 @@ export default function Home() {
 
                 <div className="form-group">
                   <label className="form-label">Base ML Estimator</label>
-                  <select 
-                    value={baseEstimator} 
+                  <select
+                    value={baseEstimator}
                     onChange={(e) => setBaseEstimator(e.target.value)}
                     className="form-control form-select"
                   >
@@ -899,7 +927,7 @@ export default function Home() {
 
                 <div className="form-group">
                   <label className="form-label">Random Seed</label>
-                  <input 
+                  <input
                     type="number"
                     value={seed}
                     onChange={(e) => setSeed(Number(e.target.value))}
@@ -910,8 +938,8 @@ export default function Home() {
                 </div>
 
                 <div style={{ marginTop: "2rem", display: "flex", justifyContent: "flex-end" }}>
-                  <button 
-                    type="submit" 
+                  <button
+                    type="submit"
                     className="custom-button custom-button-primary"
                     style={{ padding: "0.75rem 1.5rem", borderRadius: "8px", fontWeight: "700" }}
                   >
@@ -939,11 +967,11 @@ export default function Home() {
       {/* ==================================================================
           SIDE PALETTE / SLIDE-OVER DRAWER (CUSTOMER PROFILE)
           ================================================================== */}
-      <div 
+      <div
         className={`drawer-backdrop ${selectedCustomerId !== null ? "open" : ""}`}
         onClick={() => setSelectedCustomerId(null)}
       >
-        <div 
+        <div
           className="drawer-panel"
           onClick={(e) => e.stopPropagation()} // Prevent close on drawer body click
         >
@@ -1029,18 +1057,18 @@ export default function Home() {
                 {/* Section 3: Causal Model Estimates */}
                 <div>
                   <h4 className="detail-section-title" style={{ marginBottom: "1rem" }}>Causal Estimation</h4>
-                  
+
                   {/* Find customer item in recommendations list to get predicted values */}
                   {(() => {
                     const recItem = recommendationsData?.recommendations.find(
                       (r) => r.customer_id === selectedCustomer.customer_id
                     );
-                    
+
                     const iteVal = recItem ? recItem.predicted_ite : selectedCustomer.true_ite;
                     const roi = recItem && recItem.expected_cost > 0
                       ? (recItem.expected_profit / recItem.expected_cost).toFixed(2)
                       : "0.0";
-                    
+
                     return (
                       <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                         <div style={{ display: "flex", gap: "1rem" }}>
@@ -1050,7 +1078,7 @@ export default function Home() {
                               +{iteVal.toFixed(5)}
                             </div>
                           </div>
-                          
+
                           <div className="detail-item-box" style={{ flex: 1 }}>
                             <span className="detail-item-label">Projected ROI</span>
                             <div className="detail-item-val" style={{ color: parseFloat(roi) > 1.5 ? "var(--success)" : "var(--warning)" }}>

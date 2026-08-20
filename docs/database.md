@@ -60,6 +60,12 @@ python3 backend/scripts/export_data.py --dataset model-input --format csv --out 
 python3 backend/scripts/export_data.py --dataset dashboard --format csv --out data/dashboard.csv
 ```
 
+Import generated model artifacts after the causal and uplift pipelines finish:
+```
+python3 backend/scripts/import_artifacts.py --replace --budget 1000000
+python3 backend/scripts/database_health.py
+```
+
 `model-input` contains causal-model features, treatment, and outcome. The
 `dashboard` export adds latest stored prediction and recommendation fields.
 

@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import math
 import pandas as pd
 
 # Resolve project root and append to sys.path to allow importing uplift module
@@ -11,6 +12,23 @@ if project_root not in sys.path:
 from uplift.segmentation import assign_uplift_segments
 from uplift.metrics import calculate_metrics
 from uplift.optimization import optimize_discount_allocation
+
+
+def write_json(path: str, payload: dict) -> None:
+    """Write strict JSON so non-finite model values never reach an API/UI."""
+    def assert_finite(value, location="root"):
+        if isinstance(value, float) and not math.isfinite(value):
+            raise ValueError(f"Non-finite value at {location}: {value}")
+        if isinstance(value, dict):
+            for key, child in value.items():
+                assert_finite(child, f"{location}.{key}")
+        elif isinstance(value, list):
+            for index, child in enumerate(value):
+                assert_finite(child, f"{location}[{index}]")
+
+    assert_finite(payload)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=4, allow_nan=False)
 
 
 
@@ -50,8 +68,7 @@ def main():
     }
 
     results_path = os.path.join(project_root, "outputs", "uplift_results.json")
-    with open(results_path, "w", encoding="utf-8") as f:
-        json.dump(uplift_results, f, indent=4)
+    write_json(results_path, uplift_results)
     print(f"Saved: {results_path}")
 
     # 2. Save outputs/recommendations.json (Default budget cap: ₹1,000,000)
@@ -83,8 +100,7 @@ def main():
     }
 
     recs_path = os.path.join(project_root, "outputs", "recommendations.json")
-    with open(recs_path, "w", encoding="utf-8") as f:
-        json.dump(recommendations, f, indent=4)
+    write_json(recs_path, recommendations)
     print(f"Saved: {recs_path}")
 
     # 3. Save outputs/scenario_comparison.json
@@ -118,8 +134,7 @@ def main():
         }
 
     scenarios_path = os.path.join(project_root, "outputs", "scenario_comparison.json")
-    with open(scenarios_path, "w", encoding="utf-8") as f:
-        json.dump(scenarios, f, indent=4)
+    write_json(scenarios_path, scenarios)
     print(f"Saved: {scenarios_path}")
     print("Uplift output generation completed successfully.")
 

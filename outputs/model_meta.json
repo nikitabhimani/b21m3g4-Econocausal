@@ -7,7 +7,7 @@
         "max_depth": 4,
         "learning_rate": 0.1
     },
-    "trained_at": "2026-08-18T16:28:54.903602Z",
+    "trained_at": "2026-08-20T12:24:44.368597Z",
     "features": {
         "covariates": [
             "age",
@@ -29,14 +29,14 @@
     },
     "preprocessing_warnings": [],
     "evaluation_metrics": {
-        "mae": 0.07884215747314643,
-        "rmse": 0.09422683514771407,
-        "correlation": 0.5039856845347926,
-        "qini_coefficient": 0.4659183014272768
+        "mae": 0.07884215747314655,
+        "rmse": 0.09422683514771418,
+        "correlation": 0.503985684534795,
+        "qini_coefficient": 0.46813552347740955
     },
     "aggregate_estimates": {
-        "average_ite": 0.10401011917788905,
-        "median_ite": 0.10128640893092986,
+        "average_ite": 0.10401011917788924,
+        "median_ite": 0.10128640893092995,
         "positive_ite_share": 0.9539290785815716
     }
 }

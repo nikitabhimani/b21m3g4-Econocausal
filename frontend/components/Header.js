@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { apiJson } from "../lib/api";
 
 export default function Header() {
   const [apiStatus, setApiStatus] = useState("checking");
 
   useEffect(() => {
     // Check backend health
-    fetch("http://127.0.0.1:8001/api/health")
-      .then((res) => res.json())
+    apiJson("health")
       .then((data) => {
         if (data.status === "ok") {
           setApiStatus("connected");
