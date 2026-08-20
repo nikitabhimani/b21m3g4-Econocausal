@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://econocausal.local/contracts/causal_prediction.schema.json",
+  "title": "EconoCausal Causal Prediction v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["customer_id", "baseline_probability", "treatment_probability", "ite"],
+  "properties": {
+    "customer_id": {"type": "integer", "minimum": 1},
+    "baseline_probability": {"type": "number", "minimum": 0, "maximum": 1},
+    "treatment_probability": {"type": "number", "minimum": 0, "maximum": 1},
+    "ite": {"type": "number"}
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://econocausal.local/contracts/causal_summary.schema.json",
+  "title": "EconoCausal Causal Summary v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["average_ite", "median_ite", "positive_ite_share", "top_positive_ite", "top_negative_ite", "mae", "rmse", "correlation", "qini_coefficient", "n_customers"],
+  "properties": {
+    "average_ite": {"type": "number"}, "median_ite": {"type": "number"},
+    "positive_ite_share": {"type": "number", "minimum": 0, "maximum": 1},
+    "top_positive_ite": {"type": "number"}, "top_negative_ite": {"type": "number"},
+    "mae": {"type": "number", "minimum": 0}, "rmse": {"type": "number", "minimum": 0},
+    "correlation": {"type": "number", "minimum": -1, "maximum": 1},
+    "qini_coefficient": {"type": "number"}, "n_customers": {"type": "integer", "minimum": 0}
+  }
+}

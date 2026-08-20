@@ -166,10 +166,13 @@ class DoubleMachineLearning:
         self.dml_model = None
         self.fallback_model = None
         # Auxiliary outcome model used ONLY to estimate baseline/treatment
-        # probability (see fit()/predict_potential_outcomes() below). It
-        # does NOT affect the CATE/ITE estimate from dml_model.effect().
+        # probability. It does NOT affect the CATE/ITE estimate from
+        # dml_model.effect(). Keep both attribute names for compatibility
+        # with the member branch fix and main-branch callers.
         self.outcome_model = None
         self._outcome_model_columns = None
+        self.potential_outcome_model = None
+        self.potential_outcome_columns = None
 
     def fit(self, X, W, Y):
         try:
@@ -201,59 +204,81 @@ class DoubleMachineLearning:
             # -----------------------------------------------------------
             # OPTION A FIX: LinearDML.effect() gives us the CATE (ITE)
             # directly, but does not give us baseline/treatment purchase
-            # probabilities on its own. Previously predict_potential_outcomes()
-            # returned NaN for DML, which silently propagated into
-            # downstream outputs (recommendations.json -> expected_conversion
-            # was NaN for all 99,998 customers).
+            # probabilities on its own. Train a SEPARATE auxiliary classifier
+            # using the treatment indicator as a feature. This is fully
+            # independent of dml_model, so it does not change ITE/CATE.
             #
-            # Fix: train a SEPARATE auxiliary classifier that predicts the
-            # outcome (Y) directly from [all covariates/confounders + the
-            # treatment indicator as a feature]. At prediction time, we
-            # query this classifier twice per customer -- once with
-            # treatment forced to 0 (baseline) and once forced to 1
-            # (treated) -- using the SAME customer covariates both times.
-            # This gives real, non-NaN probability estimates.
-            #
-            # This auxiliary model is fully independent of dml_model, so
-            # it has NO effect on the ITE/CATE estimate used elsewhere
-            # (predict_ite() still uses dml_model.effect() unchanged).
+            # For pandas DataFrame input, preserve the exact training column
+            # order so prediction uses the same feature layout.
             # -----------------------------------------------------------
-            if hasattr(X, "columns"):
-                outcome_clf, _ = get_base_models(self.base_estimator, self.seed, self.hyperparams)
+            outcome_clf, _ = get_base_models(
+                self.base_estimator, self.seed, self.hyperparams
+            )
+            if hasattr(X, "copy") and hasattr(X, "columns"):
                 X_for_outcome = X.copy()
-                X_for_outcome[_TREATMENT_COL_NAME] = np.asarray(W)
-                self._outcome_model_columns = X_for_outcome.columns.tolist()
+                X_for_outcome[_TREATMENT_COL_NAME] = (
+                    W.values if hasattr(W, "values") else np.asarray(W)
+                )
+                self._outcome_model_columns = list(X_for_outcome.columns)
+                self.potential_outcome_columns = list(X_for_outcome.columns)
                 outcome_clf.fit(X_for_outcome, Y)
                 self.outcome_model = outcome_clf
+                self.potential_outcome_model = outcome_clf
+            else:
+                X_for_outcome = np.column_stack((X, np.asarray(W)))
+                self._outcome_model_columns = None
+                self.potential_outcome_columns = None
+                outcome_clf.fit(X_for_outcome, Y)
+                self.outcome_model = outcome_clf
+                self.potential_outcome_model = outcome_clf
 
         except Exception as e:
             print(f"EconML initialization failed or not available ({e}). Falling back to T-Learner.")
             self.dml_model = None
             self.outcome_model = None
+            self._outcome_model_columns = None
+            self.potential_outcome_model = None
+            self.potential_outcome_columns = None
             self.fallback_model = TLearner(base_estimator=self.base_estimator, seed=self.seed, hyperparams=self.hyperparams)
             self.fallback_model.fit(X, W, Y)
         return self
 
     def predict_potential_outcomes(self, X):
         if self.dml_model is not None:
-            if self.outcome_model is not None and hasattr(X, "columns"):
-                X_control = X.copy()
-                X_control[_TREATMENT_COL_NAME] = 0
-                X_treated = X.copy()
-                X_treated[_TREATMENT_COL_NAME] = 1
+            model = self.outcome_model or self.potential_outcome_model
 
-                # Ensure column order matches what the outcome model was
-                # trained on.
-                X_control = X_control[self._outcome_model_columns]
-                X_treated = X_treated[self._outcome_model_columns]
+            if model is not None:
+                if hasattr(X, "copy") and hasattr(X, "columns"):
+                    X_control = X.copy()
+                    X_treated = X.copy()
+                    X_control[_TREATMENT_COL_NAME] = 0
+                    X_treated[_TREATMENT_COL_NAME] = 1
 
-                mu_0 = self.outcome_model.predict_proba(X_control)[:, 1]
-                mu_1 = self.outcome_model.predict_proba(X_treated)[:, 1]
-                return mu_0, mu_1
+                    # Ensure column order matches the training layout.
+                    columns = (
+                        self._outcome_model_columns
+                        or self.potential_outcome_columns
+                    )
+                    if columns is not None:
+                        X_control = X_control[columns]
+                        X_treated = X_treated[columns]
 
-            # Fallback: if outcome_model wasn't trained for some reason
-            # (e.g. X had no .columns), return NaN rather than fabricating
-            # values, same as before.
+                    mu_0 = model.predict_proba(X_control)[:, 1]
+                    mu_1 = model.predict_proba(X_treated)[:, 1]
+                    return mu_0, mu_1
+
+                # Preserve main-branch support for ndarray input.
+                control_features = np.column_stack(
+                    (X, np.zeros(len(X)))
+                )
+                treated_features = np.column_stack(
+                    (X, np.ones(len(X)))
+                )
+                return (
+                    model.predict_proba(control_features)[:, 1],
+                    model.predict_proba(treated_features)[:, 1],
+                )
+
             n_samples = len(X)
             nan_probs = np.full(n_samples, np.nan)
             return nan_probs, nan_probs
