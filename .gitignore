@@ -106,3 +106,9 @@ next-env.d.ts
 
 *.tmp
 *.temp
+
+# =========================
+# Docker files
+# =========================
+
+*.dockerignore

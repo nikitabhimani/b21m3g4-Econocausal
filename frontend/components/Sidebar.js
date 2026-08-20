@@ -29,6 +29,21 @@ export default function Sidebar({ currentTab = "Dashboard", onTabChange }) {
       )
     },
     {
+      name: "Causal Insights",
+      path: "#causal-insights",
+      icon: <span aria-hidden="true">↗</span>
+    },
+    {
+      name: "Uplift Analysis",
+      path: "#uplift-analysis",
+      icon: <span aria-hidden="true">◔</span>
+    },
+    {
+      name: "Optimization",
+      path: "#optimization",
+      icon: <span aria-hidden="true">₹</span>
+    },
+    {
       name: "Settings",
       path: "#settings",
       icon: (

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://econocausal.local/contracts/uplift_results.schema.json",
+  "title": "EconoCausal Uplift Results v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["segment_shares", "segment_counts", "metrics"],
+  "properties": {
+    "segment_shares": {"type": "object", "additionalProperties": {"type": "number", "minimum": 0, "maximum": 1}},
+    "segment_counts": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+    "metrics": {"type": "object", "additionalProperties": {"type": "number"}}
+  }
+}

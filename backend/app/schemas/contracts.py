@@ -18,6 +18,11 @@ class CausalSummaryResponse(BaseModel):
     positive_ite_share: float
     top_positive_ite: float
     top_negative_ite: float
+    mae: float
+    rmse: float
+    correlation: float
+    qini_coefficient: float
+    n_customers: int
 
 
 class RecommendationItem(BaseModel):
@@ -34,3 +39,10 @@ class RecommendationListResponse(BaseModel):
     total_expected_profit: float
     total_expected_cost: float
     recommendations: list[RecommendationItem] = Field(default_factory=list)
+
+
+class CustomerListResponse(BaseModel):
+    items: list[dict] = Field(default_factory=list)
+    total: int
+    offset: int
+    limit: int

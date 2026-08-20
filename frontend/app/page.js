@@ -3,12 +3,15 @@
 import { useEffect, useState, useCallback } from "react";
 import Sidebar from "../components/Sidebar";
 import Header from "../components/Header";
+import { apiJson, apiUrl } from "../lib/api";
 
 export default function Home() {
   const [currentTab, setCurrentTab] = useState("Dashboard");
   const [summary, setSummary] = useState(null);
   const [causalSummary, setCausalSummary] = useState(null);
   const [recommendationsData, setRecommendationsData] = useState(null);
+  const [upliftData, setUpliftData] = useState(null);
+  const [iteCustomers, setIteCustomers] = useState([]);
   
   const [budget, setBudget] = useState(1000000); // Default budget: ₹1,000,000
   const [limit, setLimit] = useState(10); // Limit items in table
@@ -32,20 +35,16 @@ export default function Home() {
   // Fetch static data (summary + causal metrics)
   const fetchStaticData = useCallback(async () => {
     try {
-      const [summaryRes, causalRes] = await Promise.all([
-        fetch("http://127.0.0.1:8001/api/summary"),
-        fetch("http://127.0.0.1:8001/api/causal/summary")
+      const [summaryData, causalData, upliftPayload, iteData] = await Promise.all([
+        apiJson("summary"),
+        apiJson("causal/summary"),
+        apiJson("uplift"),
+        apiJson("causal/ite?limit=10")
       ]);
-
-      if (!summaryRes.ok || !causalRes.ok) {
-        throw new Error("Failed to fetch initial summary data.");
-      }
-
-      const summaryData = await summaryRes.json();
-      const causalData = await causalRes.json();
-
       setSummary(summaryData);
       setCausalSummary(causalData);
+      setUpliftData(upliftPayload);
+      setIteCustomers(iteData);
     } catch (err) {
       console.error(err);
       setError(err.message || "An error occurred while loading dashboard data.");
@@ -59,13 +58,7 @@ export default function Home() {
   // Fetch dynamic recommendations based on budget/limit
   const fetchRecommendations = useCallback(async (currentBudget, currentLimit) => {
     try {
-      const res = await fetch(
-        `http://127.0.0.1:8001/api/recommendations?budget=${currentBudget}&limit=100` // fetch 100 for search/paging
-      );
-      if (!res.ok) {
-        throw new Error("Failed to fetch recommendations.");
-      }
-      const data = await res.json();
+      const data = await apiJson(`recommendations?budget=${currentBudget}&limit=100`);
       setRecommendationsData(data);
     } catch (err) {
       console.error(err);
@@ -93,7 +86,7 @@ export default function Home() {
     setError(null);
 
     try {
-      const res = await fetch("http://127.0.0.1:8001/api/causal/retrain", {
+      const res = await fetch(apiUrl("causal/retrain"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -134,7 +127,7 @@ export default function Home() {
     setSelectedCustomerLoading(true);
     setSelectedCustomer(null);
     try {
-      const res = await fetch(`http://127.0.0.1:8001/api/customers/${customerId}`);
+      const res = await fetch(apiUrl(`customers/${customerId}`));
       if (res.ok) {
         const data = await res.json();
         setSelectedCustomer(data);
@@ -455,6 +448,72 @@ export default function Home() {
               </div>
             </div>
           </>
+        )}
+
+        {currentTab === "Causal Insights" && (
+          <section className="card table-card">
+            <div className="card-title-section">
+              <div>
+                <h2 className="card-title">Causal Insights</h2>
+                <p className="card-subtitle">Model quality and the customers with the strongest estimated treatment effect.</p>
+              </div>
+            </div>
+            {causalSummary ? (
+              <>
+                <div className="stats-grid" style={{ marginBottom: "1.5rem" }}>
+                  {[
+                    ["Average ITE", causalSummary.average_ite.toFixed(4)],
+                    ["Qini coefficient", causalSummary.qini_coefficient.toFixed(4)],
+                    ["Correlation", causalSummary.correlation.toFixed(4)],
+                    ["Positive ITE share", formatPercentage(causalSummary.positive_ite_share)]
+                  ].map(([label, value]) => (
+                    <div className="card" key={label}><div className="stat-label-text">{label}</div><div className="stat-value-large">{value}</div></div>
+                  ))}
+                </div>
+                <div className="table-container">
+                  <table className="data-table">
+                    <thead><tr><th>Customer</th><th>Baseline probability</th><th>Treatment probability</th><th>ITE</th></tr></thead>
+                    <tbody>{iteCustomers.map((customer) => (
+                      <tr key={customer.customer_id}><td>{customer.customer_id}</td><td>{formatPercentage(customer.baseline_probability)}</td><td>{formatPercentage(customer.treatment_probability)}</td><td>{customer.ite.toFixed(4)}</td></tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+              </>
+            ) : <div className="skeleton" style={{ height: "240px" }} />}
+          </section>
+        )}
+
+        {currentTab === "Uplift Analysis" && (
+          <section className="card table-card">
+            <div className="card-title-section"><div><h2 className="card-title">Uplift Analysis</h2><p className="card-subtitle">Customer segments and targeting performance from the generated uplift artifact.</p></div></div>
+            {upliftData ? (
+              <div className="stats-grid">
+                {Object.entries(upliftData.results.segment_shares).map(([segment, share]) => (
+                  <div className="card" key={segment}>
+                    <div className="stat-label-text">{segment}</div>
+                    <div className="stat-value-large">{formatPercentage(share)}</div>
+                    <div style={{ background: "var(--primary-glow)", borderRadius: "999px", height: "8px", marginTop: "1rem" }}><div style={{ background: "var(--primary)", borderRadius: "999px", height: "100%", width: `${Math.min(share * 100, 100)}%` }} /></div>
+                    <div className="stat-trend-subtext">{upliftData.results.segment_counts[segment].toLocaleString()} customers</div>
+                  </div>
+                ))}
+                <div className="card"><div className="stat-label-text">AUUC / Qini</div><div className="stat-value-large">{upliftData.results.metrics.qini_coefficient.toFixed(4)}</div><div className="stat-trend-subtext">MAE {upliftData.results.metrics.mae.toFixed(4)}</div></div>
+              </div>
+            ) : <div className="skeleton" style={{ height: "240px" }} />}
+          </section>
+        )}
+
+        {currentTab === "Optimization" && (
+          <section className="card table-card">
+            <div className="card-title-section"><div><h2 className="card-title">Budget Optimization</h2><p className="card-subtitle">Causal targeting compared with random targeting at each approved campaign budget.</p></div></div>
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1rem" }}>
+              {[25000, 50000, 100000, 250000].map((amount) => <button className="button-secondary" key={amount} onClick={() => handleBudgetChange({ target: { value: amount } })}>₹{amount.toLocaleString()}</button>)}
+            </div>
+            {upliftData ? (
+              <div className="table-container"><table className="data-table"><thead><tr><th>Budget</th><th>Causal profit</th><th>Causal ROI</th><th>Random profit</th><th>Random ROI</th></tr></thead><tbody>
+                {Object.entries(upliftData.scenarios).map(([scenarioBudget, scenario]) => <tr key={scenarioBudget}><td>₹{Number(scenarioBudget).toLocaleString()}</td><td>{formatCurrency(scenario.causal.expected_profit)}</td><td>{scenario.causal.roi.toFixed(2)}</td><td>{formatCurrency(scenario.random.expected_profit)}</td><td>{scenario.random.roi.toFixed(2)}</td></tr>)}
+              </tbody></table></div>
+            ) : <div className="skeleton" style={{ height: "240px" }} />}
+          </section>
         )}
 
         {/* ==================================================================

@@ -66,6 +66,13 @@ Compute precision metrics (MAE, RMSE, correlation), evaluate Qini targeting coef
 python causal_ml/diagnostics.py
 ```
 
+Or run training, prediction, diagnostics, and causal refutation checks together:
+
+```bash
+python3 scripts/run_causal_pipeline.py
+python3 scripts/generate_uplift_outputs.py
+```
+
 ---
 
 ## Database Setup
@@ -103,6 +110,13 @@ python3 backend/scripts/export_data.py --format csv --out data/customers_export.
 python3 backend/scripts/export_data.py --format json --out data/customers_export.json
 ```
 
+Import the generated predictions and budget-safe recommendations into PostgreSQL:
+
+```bash
+python3 backend/scripts/import_artifacts.py --replace --budget 1000000
+python3 backend/scripts/database_health.py
+```
+
 For reproducible database setup and dedicated downstream datasets, see
 [`docs/database.md`](docs/database.md). In particular, `setup_db.sh` is
 idempotent and `refresh_db.sh` replaces all data deliberately.
@@ -129,6 +143,12 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+For the full containerized stack (database, API, and dashboard):
+
+```bash
+docker compose up --build
+```
+
 ---
 
 ## Service Ports
@@ -142,8 +162,11 @@ Open [http://localhost:3000](http://localhost:3000).
 
 - `GET  /api/health` — service health status
 - `GET  /api/summary` — customer counts, conversions, and revenue
+- `GET  /api/customers` — paginated/filterable customer records
 - `GET  /api/customers/{customer_id}` — a detailed customer record
 - `GET  /api/causal/summary` — causal-model summary metrics (MAE, Qini, etc.)
 - `GET  /api/causal/ite` — customer records ranked by predicted uplift
+- `GET  /api/uplift` — uplift segments, metrics, and budget scenarios
 - `GET  /api/recommendations` — budget-optimised target discount recommendations
+- `GET  /api/optimize` — optimization result for a supplied budget
 - `POST /api/causal/retrain` — triggers causal model retraining, updates config, and refreshes metrics dynamically

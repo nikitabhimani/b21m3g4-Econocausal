@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://econocausal.local/contracts/recommendation.schema.json",
+  "title": "EconoCausal Recommendation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["customer_id", "predicted_ite", "recommended_discount", "expected_profit", "expected_cost"],
+  "properties": {
+    "customer_id": {"type": "integer", "minimum": 1}, "predicted_ite": {"type": "number"},
+    "recommended_discount": {"type": "number", "minimum": 0, "maximum": 1},
+    "expected_profit": {"type": "number"}, "expected_cost": {"type": "number", "minimum": 0}
+  }
+}
