@@ -25,6 +25,7 @@ def build_recommendations(budget: float, limit: int = 25) -> dict:
                 "recommended_discount": float(row["discount_percentage"]),
                 "expected_profit": float(row["expected_profit"]),
                 "expected_cost": float(row["expected_cost"]),
+                "uplift_segment": str(row["uplift_segment"]),
             }
         )
 

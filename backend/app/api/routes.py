@@ -65,8 +65,9 @@ def uplift() -> dict:
 def recommendations(
     budget: float = Query(default=1000000.0, ge=0),
     limit: int = Query(default=25, ge=1, le=100),
+    segment: str | None = Query(default=None),
 ) -> RecommendationListResponse:
-    return build_recommendations(budget=budget, limit=limit)
+    return build_recommendations(budget=budget, limit=limit, segment=segment)
 
 
 @router.get("/optimize", response_model=RecommendationListResponse)
@@ -126,3 +127,29 @@ def retrain_model(request: RetrainRequest) -> dict:
         
     # 3. Return the updated causal summary
     return build_causal_summary()
+
+
+@router.get("/causal/uplift")
+def get_uplift_results() -> dict:
+    import json
+    import os
+    backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    project_root = os.path.dirname(backend_dir)
+    uplift_path = os.path.join(project_root, "outputs", "uplift_results.json")
+    if not os.path.exists(uplift_path):
+        return {"error": "Uplift results not found. Please run generate_uplift_outputs.py first."}
+    with open(uplift_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+@router.get("/causal/scenarios")
+def get_scenario_comparison() -> dict:
+    import json
+    import os
+    backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    project_root = os.path.dirname(backend_dir)
+    scenarios_path = os.path.join(project_root, "outputs", "scenario_comparison.json")
+    if not os.path.exists(scenarios_path):
+        return {"error": "Scenario comparison results not found. Please run generate_uplift_outputs.py first."}
+    with open(scenarios_path, "r", encoding="utf-8") as f:
+        return json.load(f)
