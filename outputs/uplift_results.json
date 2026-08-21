@@ -1,21 +1,21 @@
 {
     "segment_shares": {
-        "persuadable": 0.8271165423308466,
-        "lost cause": 0.16140322806456128,
-        "sleeping dog": 0.010760215204304086,
-        "sure thing": 0.0007200144002880058
+        "persuadable": 0.82686,
+        "lost cause": 0.16105,
+        "sleeping dog": 0.01139,
+        "sure thing": 0.0007
     },
     "segment_counts": {
-        "persuadable": 82710,
-        "lost cause": 16140,
-        "sleeping dog": 1076,
-        "sure thing": 72
+        "persuadable": 82686,
+        "lost cause": 16105,
+        "sleeping dog": 1139,
+        "sure thing": 70
     },
     "metrics": {
-        "mae": 0.07884215747314655,
-        "rmse": 0.09422683514771418,
-        "correlation": 0.503985684534795,
-        "qini_coefficient": 0.46813552347740955,
-        "average_ite": 0.10401011917788924
+        "mae": 0.07903244555285273,
+        "rmse": 0.09443132248315812,
+        "correlation": 0.5032025545703402,
+        "qini_coefficient": 0.4691380072865218,
+        "average_ite": 0.1041150956369927
     }
 }
