@@ -28,6 +28,12 @@ export default function Home() {
   const [isRetraining, setIsRetraining] = useState(false);
   const [retrainSuccess, setRetrainSuccess] = useState(false);
 
+  // Campaign Dataset Upload States
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState(null);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+
   // Side Palette / Drawer States
   const [selectedCustomerId, setSelectedCustomerId] = useState(null);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -119,6 +125,69 @@ export default function Home() {
       setError(err.message || "Retraining failed. Please check backend console logs.");
     } finally {
       setIsRetraining(false);
+    }
+  };
+
+  // Campaign Dataset Upload Handlers
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (!file.name.endsWith(".csv")) {
+        setUploadError("Selected file must be a CSV.");
+        setSelectedFile(null);
+      } else {
+        setSelectedFile(file);
+        setUploadError(null);
+        setUploadSuccess(false);
+      }
+    }
+  };
+
+  const handleUploadSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedFile) return;
+
+    setIsUploading(true);
+    setUploadError(null);
+    setUploadSuccess(false);
+    setError(null);
+
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+
+    try {
+      const res = await fetch(apiUrl("causal/upload"), {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload.detail || "Failed to upload campaign data and retrain.");
+      }
+
+      const updatedCausalSummary = await res.json();
+      setCausalSummary(updatedCausalSummary);
+      setUploadSuccess(true);
+      setSelectedFile(null);
+      
+      const fileInput = document.getElementById("campaign-file-input");
+      if (fileInput) fileInput.value = "";
+
+      // Refresh data
+      await Promise.all([
+        fetchStaticData(),
+        fetchRecommendations(budget, limit)
+      ]);
+
+      // Automatically clear success banner after 5 seconds
+      setTimeout(() => setUploadSuccess(false), 5000);
+
+    } catch (err) {
+      console.error(err);
+      setUploadError(err.message || "Upload and retraining failed.");
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -872,9 +941,82 @@ export default function Home() {
             TAB: SETTINGS (MODEL RETRAINING)
             ================================================================== */}
         {currentTab === "Settings" && (
-          <section className="form-card">
-            <h2 className="card-title" style={{ marginBottom: "0.5rem" }}>Causal Estimator Settings</h2>
-            <p className="card-subtitle" style={{ marginBottom: "2rem" }}>Configure treatment effect models and run retraining workflows on live datasets.</p>
+          <>
+            <section className="form-card" style={{ marginBottom: "2rem" }}>
+              <h2 className="card-title" style={{ marginBottom: "0.5rem" }}>Upload Campaign Dataset</h2>
+              <p className="card-subtitle" style={{ marginBottom: "2rem" }}>Upload a new historical customer campaign dataset (CSV format) to overwrite the existing customer database and retrain the causal models.</p>
+
+              {uploadSuccess && (
+                <div style={{
+                  backgroundColor: "rgba(16, 185, 129, 0.15)",
+                  color: "#10b981",
+                  border: "1px solid rgba(16, 185, 129, 0.3)",
+                  padding: "1rem",
+                  borderRadius: "8px",
+                  fontWeight: "600",
+                  marginBottom: "1.5rem",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem"
+                }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                  <span>Dataset uploaded and causal pipeline retrained successfully!</span>
+                </div>
+              )}
+
+              {uploadError && (
+                <div style={{
+                  backgroundColor: "rgba(239, 68, 68, 0.15)",
+                  color: "#ef4444",
+                  border: "1px solid rgba(239, 68, 68, 0.3)",
+                  padding: "1rem",
+                  borderRadius: "8px",
+                  fontWeight: "600",
+                  marginBottom: "1.5rem"
+                }}>
+                  <strong>Error:</strong> {uploadError}
+                </div>
+              )}
+
+              {isUploading ? (
+                <div className="loading-overlay" style={{ minHeight: "150px" }}>
+                  <div className="spinner"></div>
+                  <div style={{ fontWeight: "700", color: "var(--text-primary)", marginTop: "1rem" }}>Uploading & Executing ML Pipeline...</div>
+                  <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginTop: "0.25rem" }}>
+                    Writing campaign dataset, running preprocessor, fitting estimators, and calculating diagnostics. Please wait.
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleUploadSubmit}>
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="campaign-file-input">Select Campaign CSV File</label>
+                    <input
+                      id="campaign-file-input"
+                      type="file"
+                      accept=".csv"
+                      onChange={handleFileChange}
+                      className="form-control"
+                      style={{ padding: "0.5rem" }}
+                    />
+                  </div>
+
+                  <div style={{ marginTop: "2rem", display: "flex", justifyContent: "flex-end" }}>
+                    <button
+                      type="submit"
+                      disabled={!selectedFile}
+                      className="custom-button custom-button-primary"
+                      style={{ padding: "0.75rem 1.5rem", borderRadius: "8px", fontWeight: "700", opacity: selectedFile ? 1 : 0.6 }}
+                    >
+                      Upload & Retrain Pipeline
+                    </button>
+                  </div>
+                </form>
+              )}
+            </section>
+
+            <section className="form-card">
+              <h2 className="card-title" style={{ marginBottom: "0.5rem" }}>Causal Estimator Settings</h2>
+              <p className="card-subtitle" style={{ marginBottom: "2rem" }}>Configure treatment effect models and run retraining workflows on live datasets.</p>
 
             {retrainSuccess && (
               <div className="retrain-success-banner">
@@ -949,6 +1091,7 @@ export default function Home() {
               </form>
             )}
           </section>
+          </>
         )}
 
         {/* Live Insight Banner Strip */}

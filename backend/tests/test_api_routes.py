@@ -25,8 +25,8 @@ def test_missing_customer_returns_404(monkeypatch):
 def test_recommendations_passes_budget_to_optimizer(monkeypatch):
     captured = {}
 
-    def fake_recommendations(*, budget, limit):
-        captured.update(budget=budget, limit=limit)
+    def fake_recommendations(*, budget, limit, segment=None):
+        captured.update(budget=budget, limit=limit, segment=segment)
         return {
             "budget": budget,
             "total_recommended_customers": 1,
@@ -38,4 +38,42 @@ def test_recommendations_passes_budget_to_optimizer(monkeypatch):
     monkeypatch.setattr(routes, "build_recommendations", fake_recommendations)
     response = routes.recommendations(budget=25000, limit=10)
     assert response["budget"] == 25000
-    assert captured == {"budget": 25000.0, "limit": 10}
+    assert captured == {"budget": 25000.0, "limit": 10, "segment": None}
+
+
+from unittest.mock import AsyncMock, MagicMock
+
+@pytest.mark.anyio
+async def test_upload_endpoint_rejects_non_csv():
+    file = MagicMock()
+    file.filename = "test.txt"
+    with pytest.raises(HTTPException) as error:
+        await routes.upload_campaign_data(file=file)
+    assert error.value.status_code == 400
+
+
+@pytest.mark.anyio
+async def test_upload_endpoint_saves_file_and_runs_pipeline(monkeypatch):
+    file = AsyncMock()
+    file.filename = "campaign_data.csv"
+    file.read = AsyncMock(side_effect=[b"col1,col2\nval1,val2", b""])
+
+    # Mock open and write
+    mock_open_file = MagicMock()
+    mock_open = MagicMock(return_value=mock_open_file)
+    monkeypatch.setattr("builtins.open", mock_open)
+
+    # Mock subprocess.run
+    called_subprocess = []
+    def mock_run(args, **kwargs):
+        called_subprocess.append(args)
+        return MagicMock()
+    monkeypatch.setattr("subprocess.run", mock_run)
+
+    # Mock build_causal_summary
+    monkeypatch.setattr(routes, "build_causal_summary", lambda: {"status": "mocked_summary"})
+
+    result = await routes.upload_campaign_data(file=file)
+    assert result == {"status": "mocked_summary"}
+    assert len(called_subprocess) == 1
+    assert "run_causal_pipeline.py" in called_subprocess[0][1]

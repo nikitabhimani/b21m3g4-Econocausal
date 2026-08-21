@@ -1,6 +1,6 @@
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 
 from ..schemas.contracts import (
     CausalSummaryResponse,
@@ -67,7 +67,8 @@ def recommendations(
     limit: int = Query(default=25, ge=1, le=100),
     segment: str | None = Query(default=None),
 ) -> RecommendationListResponse:
-    return build_recommendations(budget=budget, limit=limit, segment=segment)
+    actual_segment = segment if isinstance(segment, str) else None
+    return build_recommendations(budget=budget, limit=limit, segment=actual_segment)
 
 
 @router.get("/optimize", response_model=RecommendationListResponse)
@@ -153,3 +154,35 @@ def get_scenario_comparison() -> dict:
         return {"error": "Scenario comparison results not found. Please run generate_uplift_outputs.py first."}
     with open(scenarios_path, "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+@router.post("/causal/upload")
+async def upload_campaign_data(file: UploadFile = File(...)) -> dict:
+    if not file.filename.endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Uploaded file must be a CSV.")
+    
+    import os
+    backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    project_root = os.path.dirname(backend_dir)
+    data_path = os.path.join(project_root, "data", "customers.csv")
+    
+    try:
+        with open(data_path, "wb") as f:
+            while content := await file.read(1024 * 1024):  # 1MB chunks
+                f.write(content)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
+        
+    import subprocess
+    import sys
+    try:
+        subprocess.run([sys.executable, os.path.join(project_root, "scripts", "run_causal_pipeline.py")], check=True, cwd=project_root)
+    except Exception as e:
+        import traceback
+        return {
+            "error": f"Failed to execute training pipeline: {str(e)}",
+            "trace": traceback.format_exc()
+        }
+        
+    return build_causal_summary()
+
