@@ -5,12 +5,14 @@ from .data_service import load_customer_data
 from uplift.optimization import optimize_discount_allocation
 
 
-def build_recommendations(budget: float, limit: int = 25) -> dict:
+def build_recommendations(budget: float, limit: int = 25, segment: str | None = None) -> dict:
     customers = load_customer_data().drop(columns=["true_ite"], errors="ignore")
     predictions = ArtifactRepository().predictions()
     scored = customers.merge(predictions, on="customer_id", how="inner")
     scored = optimize_discount_allocation(scored, budget=budget, method="greedy")
     selected = scored[scored["selected"] == 1].sort_values("expected_profit", ascending=False)
+    if segment:
+        selected = selected[selected["uplift_segment"] == segment]
     total_expected_profit = float(selected["expected_profit"].sum())
     total_expected_cost = float(selected["expected_cost"].sum())
     if total_expected_cost > budget + 1e-6:

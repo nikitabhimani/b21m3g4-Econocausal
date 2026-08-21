@@ -48,6 +48,8 @@ def main():
     cust_df = pd.read_csv(customers_path)
 
     merged = pd.merge(pred_df, cust_df, on="customer_id")
+    if len(pred_df) != len(cust_df) or set(pred_df["customer_id"]) != set(cust_df["customer_id"]):
+        raise ValueError("Cannot generate uplift outputs from incomplete prediction coverage.")
 
     # Segment customers
     # We use baseline_threshold=0.25 based on the true baseline purchase probability distribution
