@@ -28,7 +28,8 @@ export default function Home() {
 
   const scenariosData = upliftData?.scenarios;
 
-  const [budget, setBudget] = useState(1000000); // Default budget: ₹1,000,000
+  const [budget, setBudget] = useState(1000000); // Default budget: ₹1,00,00,00
+  const [debouncedBudget, setDebouncedBudget] = useState(1000000);
   const [limit, setLimit] = useState(10); // Limit items in table
   const [searchQuery, setSearchQuery] = useState(""); // Recommendation search query
   const [segmentFilter, setSegmentFilter] = useState("all"); // Filter table by segment
@@ -90,10 +91,21 @@ export default function Home() {
     }
   }, []);
 
-  // Fetch recommendations when budget, limit, or segment filter changes
+  // Debounce budget state updates for API fetch to prevent rendering lag
   useEffect(() => {
-    fetchRecommendations(budget, limit, segmentFilter);
-  }, [budget, limit, segmentFilter, fetchRecommendations]);
+    const handler = setTimeout(() => {
+      setDebouncedBudget(budget);
+    }, 250); // 250ms debounce delay
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [budget]);
+
+  // Fetch recommendations when debounced budget, limit, or segment filter changes
+  useEffect(() => {
+    fetchRecommendations(debouncedBudget, limit, segmentFilter);
+  }, [debouncedBudget, limit, segmentFilter, fetchRecommendations]);
 
   const handleBudgetChange = (e) => {
     setBudget(Number(e.target.value));
