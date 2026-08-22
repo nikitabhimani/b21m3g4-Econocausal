@@ -28,8 +28,8 @@ export default function Home() {
 
   const scenariosData = upliftData?.scenarios;
 
-  const [budget, setBudget] = useState(1000000); // Default budget: ₹1,00,00,00
-  const [debouncedBudget, setDebouncedBudget] = useState(1000000);
+  const [budget, setBudget] = useState(100000); // Default budget: ₹100,000
+  const [debouncedBudget, setDebouncedBudget] = useState(100000);
   const [limit, setLimit] = useState(10); // Limit items in table
   const [searchQuery, setSearchQuery] = useState(""); // Recommendation search query
   const [segmentFilter, setSegmentFilter] = useState("all"); // Filter table by segment
@@ -421,17 +421,17 @@ export default function Home() {
                       </div>
                       <input
                         type="range"
-                        min="100000"
-                        max="5000000"
-                        step="100000"
+                        min="25000"
+                        max="300000"
+                        step="5000"
                         value={budget}
                         onChange={handleBudgetChange}
                         className="custom-slider"
                       />
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", color: "var(--text-muted)", fontWeight: "500" }}>
-                        <span>₹100,000</span>
-                        <span>₹2,500,000</span>
-                        <span>₹5,000,000</span>
+                        <span>₹25,000</span>
+                        <span>₹162,500</span>
+                        <span>₹300,000 (Saturation)</span>
                       </div>
                     </div>
 
