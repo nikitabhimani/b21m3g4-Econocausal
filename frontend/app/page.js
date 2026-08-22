@@ -442,7 +442,9 @@ export default function Home() {
                         gap: "1rem",
                         marginTop: "0.5rem",
                         paddingTop: "1.25rem",
-                        borderTop: "1px solid var(--border-color)"
+                        borderTop: "1px solid var(--border-color)",
+                        opacity: loading ? 0.65 : 1,
+                        transition: "opacity 0.15s ease"
                       }}>
                         <div>
                           <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: "600" }}>Targeted Customers</div>
