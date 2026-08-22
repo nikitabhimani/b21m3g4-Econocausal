@@ -8,9 +8,9 @@
         },
         "random": {
             "customers_targeted": 1150,
-            "expected_profit": 22788.365515301062,
+            "expected_profit": 24386.21636180928,
             "expected_cost": 24974.22,
-            "roi": 0.9124755654150984
+            "roi": 0.9764555754617874
         }
     },
     "50000": {
@@ -22,9 +22,9 @@
         },
         "random": {
             "customers_targeted": 2294,
-            "expected_profit": 45450.020829620815,
+            "expected_profit": 49054.71067189185,
             "expected_cost": 49990.43,
-            "roi": 0.9091744325788119
+            "roi": 0.9812820308185357
         }
     },
     "100000": {
@@ -36,9 +36,9 @@
         },
         "random": {
             "customers_targeted": 4693,
-            "expected_profit": 90869.04174890456,
+            "expected_profit": 97560.46339382316,
             "expected_cost": 99996.03,
-            "roi": 0.9087264939308547
+            "roi": 0.9756433669799007
         }
     },
     "250000": {
@@ -50,9 +50,9 @@
         },
         "random": {
             "customers_targeted": 11838,
-            "expected_profit": 226357.8772636109,
+            "expected_profit": 242398.24966430338,
             "expected_cost": 249969.15,
-            "roi": 0.9055432530918751
+            "roi": 0.9697126611996055
         }
     },
     "500000": {
@@ -64,9 +64,9 @@
         },
         "random": {
             "customers_targeted": 12272,
-            "expected_profit": 235023.84320689563,
+            "expected_profit": 251710.42598782922,
             "expected_cost": 259515.57,
-            "roi": 0.9056252124174886
+            "roi": 0.9699241782981622
         }
     },
     "1000000": {
@@ -78,9 +78,9 @@
         },
         "random": {
             "customers_targeted": 12272,
-            "expected_profit": 235023.84320689563,
+            "expected_profit": 251710.42598782922,
             "expected_cost": 259515.57,
-            "roi": 0.9056252124174886
+            "roi": 0.9699241782981622
         }
     },
     "2500000": {
@@ -92,9 +92,9 @@
         },
         "random": {
             "customers_targeted": 12272,
-            "expected_profit": 235023.84320689563,
+            "expected_profit": 251710.42598782922,
             "expected_cost": 259515.57,
-            "roi": 0.9056252124174886
+            "roi": 0.9699241782981622
         }
     }
 }
