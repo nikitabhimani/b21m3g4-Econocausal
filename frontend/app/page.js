@@ -581,7 +581,7 @@ export default function Home() {
                   ))}
                 </div>
                 <div className="table-container">
-                  <table className="data-table">
+                  <table className="custom-table">
                     <thead><tr><th>Customer</th><th>Baseline probability</th><th>Treatment probability</th><th>ITE</th></tr></thead>
                     <tbody>{iteCustomers.map((customer) => (
                       <tr key={customer.customer_id}><td>{customer.customer_id}</td><td>{formatPercentage(customer.baseline_probability)}</td><td>{formatPercentage(customer.treatment_probability)}</td><td>{customer.ite.toFixed(4)}</td></tr>
@@ -615,11 +615,19 @@ export default function Home() {
         {currentTab === "Optimization" && (
           <section className="card table-card">
             <div className="card-title-section"><div><h2 className="card-title">Budget Optimization</h2><p className="card-subtitle">Causal targeting compared with random targeting at each approved campaign budget.</p></div></div>
-            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1rem" }}>
-              {[25000, 50000, 100000, 250000].map((amount) => <button className="button-secondary" key={amount} onClick={() => handleBudgetChange({ target: { value: amount } })}>₹{amount.toLocaleString()}</button>)}
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1.25rem" }}>
+              {[25000, 50000, 100000, 250000].map((amount) => (
+                <button
+                  className={`custom-button-secondary budget-pill ${budget === amount ? 'active' : ''}`}
+                  key={amount}
+                  onClick={() => handleBudgetChange({ target: { value: amount } })}
+                >
+                  ₹{amount.toLocaleString()}
+                </button>
+              ))}
             </div>
             {upliftData ? (
-              <div className="table-container"><table className="data-table"><thead><tr><th>Budget</th><th>Causal profit</th><th>Causal ROI</th><th>Random profit</th><th>Random ROI</th></tr></thead><tbody>
+              <div className="table-container"><table className="custom-table"><thead><tr><th>Budget</th><th>Causal profit</th><th>Causal ROI</th><th>Random profit</th><th>Random ROI</th></tr></thead><tbody>
                 {Object.entries(upliftData.scenarios).map(([scenarioBudget, scenario]) => <tr key={scenarioBudget}><td>₹{Number(scenarioBudget).toLocaleString()}</td><td>{formatCurrency(scenario.causal.expected_profit)}</td><td>{scenario.causal.roi.toFixed(2)}</td><td>{formatCurrency(scenario.random.expected_profit)}</td><td>{scenario.random.roi.toFixed(2)}</td></tr>)}
               </tbody></table></div>
             ) : <div className="skeleton" style={{ height: "240px" }} />}
@@ -1004,15 +1012,32 @@ export default function Home() {
               ) : (
                 <form onSubmit={handleUploadSubmit}>
                   <div className="form-group">
-                    <label className="form-label" htmlFor="campaign-file-input">Select Campaign CSV File</label>
-                    <input
-                      id="campaign-file-input"
-                      type="file"
-                      accept=".csv"
-                      onChange={handleFileChange}
-                      className="form-control"
-                      style={{ padding: "0.5rem" }}
-                    />
+                    <label className="form-label" style={{ marginBottom: "0.75rem" }}>Select Campaign CSV File</label>
+                    <div className="upload-dropzone">
+                      <input
+                        id="campaign-file-input"
+                        type="file"
+                        accept=".csv"
+                        onChange={handleFileChange}
+                        style={{ display: "none" }}
+                      />
+                      <label htmlFor="campaign-file-input" className="upload-label-wrapper">
+                        <div className="upload-icon-circle">
+                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        </div>
+                        {selectedFile ? (
+                          <div className="selected-file-info">
+                            <span className="file-name">{selectedFile.name}</span>
+                            <span className="file-size">({(selectedFile.size / 1024).toFixed(1)} KB)</span>
+                          </div>
+                        ) : (
+                          <div className="upload-prompt">
+                            <span className="upload-text-bold">Click to browse file</span> or drag & drop CSV
+                            <span className="upload-text-muted">Supports campaign CSV files up to 50MB</span>
+                          </div>
+                        )}
+                      </label>
+                    </div>
                   </div>
 
                   <div style={{ marginTop: "2rem", display: "flex", justifyContent: "flex-end" }}>
