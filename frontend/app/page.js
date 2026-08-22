@@ -4,6 +4,19 @@ import { useEffect, useState, useCallback } from "react";
 import Sidebar from "../components/Sidebar";
 import Header from "../components/Header";
 import { apiJson, apiUrl } from "../lib/api";
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  PieChart,
+  Pie,
+  Cell
+} from "recharts";
 
 export default function Home() {
   const [currentTab, setCurrentTab] = useState("Dashboard");
@@ -12,6 +25,8 @@ export default function Home() {
   const [recommendationsData, setRecommendationsData] = useState(null);
   const [upliftData, setUpliftData] = useState(null);
   const [iteCustomers, setIteCustomers] = useState([]);
+
+  const scenariosData = upliftData?.scenarios;
 
   const [budget, setBudget] = useState(1000000); // Default budget: ₹1,000,000
   const [limit, setLimit] = useState(10); // Limit items in table
