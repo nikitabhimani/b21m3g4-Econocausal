@@ -1,8 +1,9 @@
-pandas 
-numpy 
-scikit-learn 
-dowhy 
-econml 
-scipy 
-matplotlib 
-fastapi 
+pandas
+numpy
+scikit-learn
+dowhy
+econml
+scipy
+lightgbm>=4.0.0
+matplotlib
+fastapi

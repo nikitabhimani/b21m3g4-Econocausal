@@ -77,3 +77,23 @@ async def test_upload_endpoint_saves_file_and_runs_pipeline(monkeypatch):
     assert result == {"status": "mocked_summary"}
     assert len(called_subprocess) == 1
     assert "run_causal_pipeline.py" in called_subprocess[0][1]
+
+
+def test_optimize_endpoint_exposes_lp_method(monkeypatch):
+    captured = {}
+
+    def fake_optimization(*, budget, method):
+        captured.update(budget=budget, method=method)
+        return {
+            "budget": budget,
+            "method": method,
+            "total_recommended_customers": 0,
+            "total_expected_profit": 0.0,
+            "total_expected_cost": 0.0,
+            "recommendations": [],
+        }
+
+    monkeypatch.setattr(routes, "build_optimization", fake_optimization)
+    response = routes.optimize(budget=100.0, method="lp")
+    assert response["method"] == "lp"
+    assert captured == {"budget": 100.0, "method": "lp"}

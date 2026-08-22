@@ -6,15 +6,20 @@ from uplift.optimization import optimize_discount_allocation
 from uplift.segmentation import assign_uplift_segments
 
 
-def build_recommendations(budget: float, limit: int = 25, segment: str | None = None) -> dict:
+def build_recommendations(
+    budget: float,
+    limit: int = 25,
+    segment: str | None = None,
+    method: str = "greedy",
+) -> dict:
     customers = load_customer_data().drop(columns=["true_ite"], errors="ignore")
     predictions = ArtifactRepository().predictions()
     scored = customers.merge(predictions, on="customer_id", how="inner")
     scored = assign_uplift_segments(scored, baseline_threshold=0.25)
-    if segment:
-        scored = scored[scored["customer_segment"] == segment]
-    scored = optimize_discount_allocation(scored, budget=budget, method="greedy")
+    scored = optimize_discount_allocation(scored, budget=budget, method=method)
     selected = scored[scored["selected"] == 1].sort_values("expected_profit", ascending=False)
+    if segment:
+        selected = selected[selected["uplift_segment"] == segment]
     total_expected_profit = float(selected["expected_profit"].sum())
     total_expected_cost = float(selected["expected_cost"].sum())
     if total_expected_cost > budget + 1e-6:
@@ -43,9 +48,7 @@ def build_recommendations(budget: float, limit: int = 25, segment: str | None = 
 
 
 def build_optimization(budget: float, method: str) -> dict:
-    if method != "greedy":
-        raise ValueError("Only the greedy integer-safe optimizer is available via the API.")
-    result = build_recommendations(budget=budget, limit=100)
+    result = build_recommendations(budget=budget, limit=100, method=method)
     result["method"] = method
     return result
 

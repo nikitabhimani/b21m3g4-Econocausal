@@ -18,6 +18,7 @@ def optimize_discount_allocation_greedy(
     df = df.copy()
     df["expected_profit"] = df[ite_col] * df[revenue_col]
     df["expected_cost"] = df[cost_col]
+    df["allocation_fraction"] = 0.0
 
     # Filter candidates with positive profit and cost to prevent division by zero or counter-productive selection
     candidates = df[(df["expected_profit"] > 0) & (df["expected_cost"] > 0)].copy()
@@ -30,6 +31,7 @@ def optimize_discount_allocation_greedy(
 
     selected_ids = set(candidates[candidates["selected"] == 1]["customer_id"])
     df["selected"] = df["customer_id"].isin(selected_ids).astype(int)
+    df.loc[df["selected"] == 1, "allocation_fraction"] = 1.0
     return df
 
 
@@ -45,31 +47,33 @@ def optimize_discount_allocation_lp(
     Maximizes expected profit subject to expected cost <= budget.
     """
     df = df.copy()
-    df["expected_profit"] = df[ite_col] * df[revenue_col]
-    df["expected_cost"] = df[cost_col]
+    df["gross_expected_profit"] = df[ite_col] * df[revenue_col]
+    df["gross_expected_cost"] = df[cost_col]
 
     n_customers = len(df)
-    
+
     # Coefficients for objective function (minimize -profit to maximize profit)
-    c = -df["expected_profit"].values
-    
+    c = -df["gross_expected_profit"].values
+
     # Inequality constraint: cost * x <= budget
-    A = [df["expected_cost"].values]
+    A = [df["gross_expected_cost"].values]
     b = [budget]
-    
+
     # Bounds: 0 <= x_i <= 1
     bounds = [(0, 1) for _ in range(n_customers)]
-    
+
     # Solve linear programming problem
     res = linprog(c, A_ub=A, b_ub=b, bounds=bounds, method="highs")
-    
+
     if res.success:
-        # Threshold fractional solutions (>0.5 selected)
-        df["selected"] = (res.x >= 0.5).astype(int)
+        df["allocation_fraction"] = res.x
+        df["selected"] = (res.x > 0).astype(int)
+        df["expected_profit"] = df["gross_expected_profit"] * df["allocation_fraction"]
+        df["expected_cost"] = df["gross_expected_cost"] * df["allocation_fraction"]
     else:
         # Fallback to greedy if solver fails
         return optimize_discount_allocation_greedy(df, budget, ite_col, cost_col, revenue_col)
-        
+
     return df
 
 
@@ -92,5 +96,6 @@ def optimize_discount_allocation(
 
     if method == "lp":
         return optimize_discount_allocation_lp(df, budget, ite_col, cost_col, revenue_col)
-    else:
+    if method == "greedy":
         return optimize_discount_allocation_greedy(df, budget, ite_col, cost_col, revenue_col)
+    raise ValueError("method must be either 'greedy' or 'lp'.")

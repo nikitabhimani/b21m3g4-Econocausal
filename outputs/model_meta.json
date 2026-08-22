@@ -1,4 +1,5 @@
 {
+    "artifact_version": "20260822T115612Z",
     "model_type": "dml",
     "base_estimator": "lightgbm",
     "seed": 42,
@@ -7,7 +8,7 @@
         "max_depth": 4,
         "learning_rate": 0.1
     },
-    "trained_at": "2026-08-20T12:24:44.368597Z",
+    "trained_at": "2026-08-22T11:56:18.639648Z",
     "features": {
         "covariates": [
             "age",
@@ -29,14 +30,14 @@
     },
     "preprocessing_warnings": [],
     "evaluation_metrics": {
-        "mae": 0.07884215747314655,
-        "rmse": 0.09422683514771418,
-        "correlation": 0.503985684534795,
-        "qini_coefficient": 0.46813552347740955
+        "mae": 0.07903244555285273,
+        "rmse": 0.09443132248315812,
+        "correlation": 0.5032025545703402,
+        "qini_coefficient": 0.4691380072865218
     },
     "aggregate_estimates": {
-        "average_ite": 0.10401011917788924,
-        "median_ite": 0.10128640893092995,
-        "positive_ite_share": 0.9539290785815716
+        "average_ite": 0.1041150956369927,
+        "median_ite": 0.10177346347071964,
+        "positive_ite_share": 0.95261
     }
 }

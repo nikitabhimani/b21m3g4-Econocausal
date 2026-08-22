@@ -67,14 +67,16 @@ def recommendations(
     limit: int = Query(default=25, ge=1, le=100),
     segment: str | None = Query(default=None),
 ) -> RecommendationListResponse:
-    actual_segment = segment if isinstance(segment, str) else None
-    return build_recommendations(budget=budget, limit=limit, segment=actual_segment)
+    options = {"budget": budget, "limit": limit}
+    if isinstance(segment, str) and segment:
+        options["segment"] = segment
+    return build_recommendations(**options)
 
 
 @router.get("/optimize", response_model=RecommendationListResponse)
 def optimize(
     budget: float = Query(default=1000000.0, ge=0),
-    method: Literal["greedy"] = Query(default="greedy"),
+    method: Literal["greedy", "lp"] = Query(default="greedy"),
 ) -> RecommendationListResponse:
     return build_optimization(budget=budget, method=method)
 
@@ -92,40 +94,40 @@ def retrain_model(request: RetrainRequest) -> dict:
     import subprocess
     import sys
     import yaml
-    
+
     # 1. Update config.yaml with new parameters
     backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     project_root = os.path.dirname(backend_dir)
     config_path = os.path.join(project_root, "causal_ml", "config.yaml")
-    
+
     if not os.path.exists(config_path):
         return {"error": "Causal ML configuration file not found."}
-        
+
     with open(config_path, "r") as f:
         config = yaml.safe_load(f)
-        
+
     config["model"]["type"] = request.model_type
     config["model"]["base_estimator"] = request.base_estimator
     config["model"]["seed"] = request.seed
-    
+
     with open(config_path, "w") as f:
         yaml.safe_dump(config, f)
-        
+
     # 2. Add causal_ml directory to Python path and execute scripts
     causal_ml_dir = os.path.join(project_root, "causal_ml")
     if causal_ml_dir not in sys.path:
         sys.path.append(causal_ml_dir)
-        
+
     try:
         subprocess.run([sys.executable, os.path.join(project_root, "scripts", "run_causal_pipeline.py")], check=True, cwd=project_root)
-        
+
     except Exception as e:
         import traceback
         return {
             "error": f"Failed to execute training pipeline: {str(e)}",
             "trace": traceback.format_exc()
         }
-        
+
     # 3. Return the updated causal summary
     return build_causal_summary()
 
