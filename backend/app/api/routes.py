@@ -76,7 +76,7 @@ def recommendations(
 @router.get("/optimize", response_model=RecommendationListResponse)
 def optimize(
     budget: float = Query(default=1000000.0, ge=0),
-    method: Literal["greedy"] = Query(default="greedy"),
+    method: Literal["greedy", "lp"] = Query(default="greedy"),
 ) -> RecommendationListResponse:
     return build_optimization(budget=budget, method=method)
 

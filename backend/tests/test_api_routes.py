@@ -39,3 +39,23 @@ def test_recommendations_passes_budget_to_optimizer(monkeypatch):
     response = routes.recommendations(budget=25000, limit=10)
     assert response["budget"] == 25000
     assert captured == {"budget": 25000.0, "limit": 10}
+
+
+def test_optimize_endpoint_exposes_lp_method(monkeypatch):
+    captured = {}
+
+    def fake_optimization(*, budget, method):
+        captured.update(budget=budget, method=method)
+        return {
+            "budget": budget,
+            "method": method,
+            "total_recommended_customers": 0,
+            "total_expected_profit": 0.0,
+            "total_expected_cost": 0.0,
+            "recommendations": [],
+        }
+
+    monkeypatch.setattr(routes, "build_optimization", fake_optimization)
+    response = routes.optimize(budget=100.0, method="lp")
+    assert response["method"] == "lp"
+    assert captured == {"budget": 100.0, "method": "lp"}

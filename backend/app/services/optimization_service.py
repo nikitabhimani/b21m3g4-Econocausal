@@ -5,11 +5,16 @@ from .data_service import load_customer_data
 from uplift.optimization import optimize_discount_allocation
 
 
-def build_recommendations(budget: float, limit: int = 25, segment: str | None = None) -> dict:
+def build_recommendations(
+    budget: float,
+    limit: int = 25,
+    segment: str | None = None,
+    method: str = "greedy",
+) -> dict:
     customers = load_customer_data().drop(columns=["true_ite"], errors="ignore")
     predictions = ArtifactRepository().predictions()
     scored = customers.merge(predictions, on="customer_id", how="inner")
-    scored = optimize_discount_allocation(scored, budget=budget, method="greedy")
+    scored = optimize_discount_allocation(scored, budget=budget, method=method)
     selected = scored[scored["selected"] == 1].sort_values("expected_profit", ascending=False)
     if segment:
         selected = selected[selected["uplift_segment"] == segment]
@@ -41,9 +46,7 @@ def build_recommendations(budget: float, limit: int = 25, segment: str | None = 
 
 
 def build_optimization(budget: float, method: str) -> dict:
-    if method != "greedy":
-        raise ValueError("Only the greedy integer-safe optimizer is available via the API.")
-    result = build_recommendations(budget=budget, limit=100)
+    result = build_recommendations(budget=budget, limit=100, method=method)
     result["method"] = method
     return result
 

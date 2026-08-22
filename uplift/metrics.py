@@ -17,6 +17,13 @@ def calculate_qini_curve(
         if col not in df.columns:
             raise ValueError(f"Column '{col}' not found in DataFrame.")
 
+    if df.empty:
+        return np.array([], dtype=float)
+
+    # Without both arms, an observed Qini curve is not estimable.
+    if not (df[treatment_col] == 1).any() or not (df[treatment_col] == 0).any():
+        return np.zeros(len(df), dtype=float)
+
     # Sort descending by predicted scores
     sorted_df = df.sort_values(by=score_col, ascending=False).reset_index(drop=True)
 
@@ -42,7 +49,7 @@ def calculate_auuc(qini_curve: np.ndarray) -> float:
     """
     Computes Area Under Causal Curve (AUUC).
     """
-    if len(qini_curve) <= 1:
+    if len(qini_curve) == 0:
         return 0.0
     return float(np.mean(qini_curve))
 
@@ -59,22 +66,33 @@ def calculate_metrics(
     """
     metrics = {}
 
+    if df.empty:
+        if score_col in df.columns:
+            metrics["average_ite"] = 0.0
+        return metrics
+
     # Error metrics
     if true_ite_col in df.columns and score_col in df.columns:
         pred_ite = df[score_col].values
         true_ite = df[true_ite_col].values
         metrics["mae"] = float(np.mean(np.abs(pred_ite - true_ite)))
         metrics["rmse"] = float(np.sqrt(np.mean((pred_ite - true_ite) ** 2)))
-        
-        corr_matrix = np.corrcoef(pred_ite, true_ite)
-        metrics["correlation"] = float(corr_matrix[0, 1]) if not np.isnan(corr_matrix[0, 1]) else 0.0
+
+        if len(pred_ite) < 2 or np.isclose(np.std(pred_ite), 0) or np.isclose(np.std(true_ite), 0):
+            metrics["correlation"] = 0.0
+        else:
+            corr_matrix = np.corrcoef(pred_ite, true_ite)
+            metrics["correlation"] = float(corr_matrix[0, 1]) if not np.isnan(corr_matrix[0, 1]) else 0.0
 
     # Qini Coefficient
     if treatment_col in df.columns and outcome_col in df.columns:
         qini_model = calculate_qini_curve(df, score_col, treatment_col, outcome_col)
         n_samples = len(df)
+        if n_samples == 0:
+            metrics["qini_coefficient"] = 0.0
+            return metrics
         qini_random = np.linspace(0, qini_model[-1] if len(qini_model) > 0 else 0, n_samples)
-        
+
         sort_col_perfect = true_ite_col if true_ite_col in df.columns else score_col
         qini_perfect = calculate_qini_curve(df, sort_col_perfect, treatment_col, outcome_col)
 

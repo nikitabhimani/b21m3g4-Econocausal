@@ -1,5 +1,5 @@
 {
-    "artifact_version": "20260821T170424Z",
+    "artifact_version": "20260822T115612Z",
     "model_type": "dml",
     "base_estimator": "lightgbm",
     "seed": 42,
@@ -8,7 +8,7 @@
         "max_depth": 4,
         "learning_rate": 0.1
     },
-    "trained_at": "2026-08-21T17:04:33.352572Z",
+    "trained_at": "2026-08-22T11:56:18.639648Z",
     "features": {
         "covariates": [
             "age",
