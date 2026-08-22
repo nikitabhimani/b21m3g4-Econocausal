@@ -4,6 +4,19 @@ import { useEffect, useState, useCallback } from "react";
 import Sidebar from "../components/Sidebar";
 import Header from "../components/Header";
 import { apiJson, apiUrl } from "../lib/api";
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  PieChart,
+  Pie,
+  Cell
+} from "recharts";
 
 export default function Home() {
   const [currentTab, setCurrentTab] = useState("Dashboard");
@@ -13,7 +26,10 @@ export default function Home() {
   const [upliftData, setUpliftData] = useState(null);
   const [iteCustomers, setIteCustomers] = useState([]);
 
-  const [budget, setBudget] = useState(1000000); // Default budget: ₹1,000,000
+  const scenariosData = upliftData?.scenarios;
+
+  const [budget, setBudget] = useState(100000); // Default budget: ₹100,000
+  const [debouncedBudget, setDebouncedBudget] = useState(100000);
   const [limit, setLimit] = useState(10); // Limit items in table
   const [searchQuery, setSearchQuery] = useState(""); // Recommendation search query
   const [segmentFilter, setSegmentFilter] = useState("all"); // Filter table by segment
@@ -27,6 +43,12 @@ export default function Home() {
   const [seed, setSeed] = useState(42);
   const [isRetraining, setIsRetraining] = useState(false);
   const [retrainSuccess, setRetrainSuccess] = useState(false);
+
+  // Campaign Dataset Upload States
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState(null);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
 
   // Side Palette / Drawer States
   const [selectedCustomerId, setSelectedCustomerId] = useState(null);
@@ -69,10 +91,21 @@ export default function Home() {
     }
   }, []);
 
-  // Fetch recommendations when budget, limit, or segment filter changes
+  // Debounce budget state updates for API fetch to prevent rendering lag
   useEffect(() => {
-    fetchRecommendations(budget, limit, segmentFilter);
-  }, [budget, limit, segmentFilter, fetchRecommendations]);
+    const handler = setTimeout(() => {
+      setDebouncedBudget(budget);
+    }, 250); // 250ms debounce delay
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [budget]);
+
+  // Fetch recommendations when debounced budget, limit, or segment filter changes
+  useEffect(() => {
+    fetchRecommendations(debouncedBudget, limit, segmentFilter);
+  }, [debouncedBudget, limit, segmentFilter, fetchRecommendations]);
 
   const handleBudgetChange = (e) => {
     setBudget(Number(e.target.value));
@@ -119,6 +152,69 @@ export default function Home() {
       setError(err.message || "Retraining failed. Please check backend console logs.");
     } finally {
       setIsRetraining(false);
+    }
+  };
+
+  // Campaign Dataset Upload Handlers
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (!file.name.endsWith(".csv")) {
+        setUploadError("Selected file must be a CSV.");
+        setSelectedFile(null);
+      } else {
+        setSelectedFile(file);
+        setUploadError(null);
+        setUploadSuccess(false);
+      }
+    }
+  };
+
+  const handleUploadSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedFile) return;
+
+    setIsUploading(true);
+    setUploadError(null);
+    setUploadSuccess(false);
+    setError(null);
+
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+
+    try {
+      const res = await fetch(apiUrl("causal/upload"), {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload.detail || "Failed to upload campaign data and retrain.");
+      }
+
+      const updatedCausalSummary = await res.json();
+      setCausalSummary(updatedCausalSummary);
+      setUploadSuccess(true);
+      setSelectedFile(null);
+      
+      const fileInput = document.getElementById("campaign-file-input");
+      if (fileInput) fileInput.value = "";
+
+      // Refresh data
+      await Promise.all([
+        fetchStaticData(),
+        fetchRecommendations(budget, limit)
+      ]);
+
+      // Automatically clear success banner after 5 seconds
+      setTimeout(() => setUploadSuccess(false), 5000);
+
+    } catch (err) {
+      console.error(err);
+      setUploadError(err.message || "Upload and retraining failed.");
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -325,17 +421,17 @@ export default function Home() {
                       </div>
                       <input
                         type="range"
-                        min="100000"
-                        max="5000000"
-                        step="100000"
+                        min="25000"
+                        max="300000"
+                        step="5000"
                         value={budget}
                         onChange={handleBudgetChange}
                         className="custom-slider"
                       />
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", color: "var(--text-muted)", fontWeight: "500" }}>
-                        <span>₹100,000</span>
-                        <span>₹2,500,000</span>
-                        <span>₹5,000,000</span>
+                        <span>₹25,000</span>
+                        <span>₹162,500</span>
+                        <span>₹300,000 (Saturation)</span>
                       </div>
                     </div>
 
@@ -346,7 +442,9 @@ export default function Home() {
                         gap: "1rem",
                         marginTop: "0.5rem",
                         paddingTop: "1.25rem",
-                        borderTop: "1px solid var(--border-color)"
+                        borderTop: "1px solid var(--border-color)",
+                        opacity: loading ? 0.65 : 1,
+                        transition: "opacity 0.15s ease"
                       }}>
                         <div>
                           <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: "600" }}>Targeted Customers</div>
@@ -497,7 +595,7 @@ export default function Home() {
                   ))}
                 </div>
                 <div className="table-container">
-                  <table className="data-table">
+                  <table className="custom-table">
                     <thead><tr><th>Customer</th><th>Baseline probability</th><th>Treatment probability</th><th>ITE</th></tr></thead>
                     <tbody>{iteCustomers.map((customer) => (
                       <tr key={customer.customer_id}><td>{customer.customer_id}</td><td>{formatPercentage(customer.baseline_probability)}</td><td>{formatPercentage(customer.treatment_probability)}</td><td>{customer.ite.toFixed(4)}</td></tr>
@@ -531,11 +629,19 @@ export default function Home() {
         {currentTab === "Optimization" && (
           <section className="card table-card">
             <div className="card-title-section"><div><h2 className="card-title">Budget Optimization</h2><p className="card-subtitle">Causal targeting compared with random targeting at each approved campaign budget.</p></div></div>
-            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1rem" }}>
-              {[25000, 50000, 100000, 250000].map((amount) => <button className="button-secondary" key={amount} onClick={() => handleBudgetChange({ target: { value: amount } })}>₹{amount.toLocaleString()}</button>)}
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1.25rem" }}>
+              {[25000, 50000, 100000, 250000].map((amount) => (
+                <button
+                  className={`custom-button-secondary budget-pill ${budget === amount ? 'active' : ''}`}
+                  key={amount}
+                  onClick={() => handleBudgetChange({ target: { value: amount } })}
+                >
+                  ₹{amount.toLocaleString()}
+                </button>
+              ))}
             </div>
             {upliftData ? (
-              <div className="table-container"><table className="data-table"><thead><tr><th>Budget</th><th>Causal profit</th><th>Causal ROI</th><th>Random profit</th><th>Random ROI</th></tr></thead><tbody>
+              <div className="table-container"><table className="custom-table"><thead><tr><th>Budget</th><th>Causal profit</th><th>Causal ROI</th><th>Random profit</th><th>Random ROI</th></tr></thead><tbody>
                 {Object.entries(upliftData.scenarios).map(([scenarioBudget, scenario]) => <tr key={scenarioBudget}><td>₹{Number(scenarioBudget).toLocaleString()}</td><td>{formatCurrency(scenario.causal.expected_profit)}</td><td>{scenario.causal.roi.toFixed(2)}</td><td>{formatCurrency(scenario.random.expected_profit)}</td><td>{scenario.random.roi.toFixed(2)}</td></tr>)}
               </tbody></table></div>
             ) : <div className="skeleton" style={{ height: "240px" }} />}
@@ -872,9 +978,99 @@ export default function Home() {
             TAB: SETTINGS (MODEL RETRAINING)
             ================================================================== */}
         {currentTab === "Settings" && (
-          <section className="form-card">
-            <h2 className="card-title" style={{ marginBottom: "0.5rem" }}>Causal Estimator Settings</h2>
-            <p className="card-subtitle" style={{ marginBottom: "2rem" }}>Configure treatment effect models and run retraining workflows on live datasets.</p>
+          <>
+            <section className="form-card" style={{ marginBottom: "2rem" }}>
+              <h2 className="card-title" style={{ marginBottom: "0.5rem" }}>Upload Campaign Dataset</h2>
+              <p className="card-subtitle" style={{ marginBottom: "2rem" }}>Upload a new historical customer campaign dataset (CSV format) to overwrite the existing customer database and retrain the causal models.</p>
+
+              {uploadSuccess && (
+                <div style={{
+                  backgroundColor: "rgba(16, 185, 129, 0.15)",
+                  color: "#10b981",
+                  border: "1px solid rgba(16, 185, 129, 0.3)",
+                  padding: "1rem",
+                  borderRadius: "8px",
+                  fontWeight: "600",
+                  marginBottom: "1.5rem",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem"
+                }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                  <span>Dataset uploaded and causal pipeline retrained successfully!</span>
+                </div>
+              )}
+
+              {uploadError && (
+                <div style={{
+                  backgroundColor: "rgba(239, 68, 68, 0.15)",
+                  color: "#ef4444",
+                  border: "1px solid rgba(239, 68, 68, 0.3)",
+                  padding: "1rem",
+                  borderRadius: "8px",
+                  fontWeight: "600",
+                  marginBottom: "1.5rem"
+                }}>
+                  <strong>Error:</strong> {uploadError}
+                </div>
+              )}
+
+              {isUploading ? (
+                <div className="loading-overlay" style={{ minHeight: "150px" }}>
+                  <div className="spinner"></div>
+                  <div style={{ fontWeight: "700", color: "var(--text-primary)", marginTop: "1rem" }}>Uploading & Executing ML Pipeline...</div>
+                  <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginTop: "0.25rem" }}>
+                    Writing campaign dataset, running preprocessor, fitting estimators, and calculating diagnostics. Please wait.
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleUploadSubmit}>
+                  <div className="form-group">
+                    <label className="form-label" style={{ marginBottom: "0.75rem" }}>Select Campaign CSV File</label>
+                    <div className="upload-dropzone">
+                      <input
+                        id="campaign-file-input"
+                        type="file"
+                        accept=".csv"
+                        onChange={handleFileChange}
+                        style={{ display: "none" }}
+                      />
+                      <label htmlFor="campaign-file-input" className="upload-label-wrapper">
+                        <div className="upload-icon-circle">
+                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        </div>
+                        {selectedFile ? (
+                          <div className="selected-file-info">
+                            <span className="file-name">{selectedFile.name}</span>
+                            <span className="file-size">({(selectedFile.size / 1024).toFixed(1)} KB)</span>
+                          </div>
+                        ) : (
+                          <div className="upload-prompt">
+                            <span className="upload-text-bold">Click to browse file</span> or drag & drop CSV
+                            <span className="upload-text-muted">Supports campaign CSV files up to 50MB</span>
+                          </div>
+                        )}
+                      </label>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: "2rem", display: "flex", justifyContent: "flex-end" }}>
+                    <button
+                      type="submit"
+                      disabled={!selectedFile}
+                      className="custom-button custom-button-primary"
+                      style={{ padding: "0.75rem 1.5rem", borderRadius: "8px", fontWeight: "700", opacity: selectedFile ? 1 : 0.6 }}
+                    >
+                      Upload & Retrain Pipeline
+                    </button>
+                  </div>
+                </form>
+              )}
+            </section>
+
+            <section className="form-card">
+              <h2 className="card-title" style={{ marginBottom: "0.5rem" }}>Causal Estimator Settings</h2>
+              <p className="card-subtitle" style={{ marginBottom: "2rem" }}>Configure treatment effect models and run retraining workflows on live datasets.</p>
 
             {retrainSuccess && (
               <div className="retrain-success-banner">
@@ -949,6 +1145,7 @@ export default function Home() {
               </form>
             )}
           </section>
+          </>
         )}
 
         {/* Live Insight Banner Strip */}

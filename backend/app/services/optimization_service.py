@@ -3,6 +3,7 @@ from __future__ import annotations
 from ..repositories import ArtifactRepository
 from .data_service import load_customer_data
 from uplift.optimization import optimize_discount_allocation
+from uplift.segmentation import assign_uplift_segments
 
 
 def build_recommendations(
@@ -14,6 +15,7 @@ def build_recommendations(
     customers = load_customer_data().drop(columns=["true_ite"], errors="ignore")
     predictions = ArtifactRepository().predictions()
     scored = customers.merge(predictions, on="customer_id", how="inner")
+    scored = assign_uplift_segments(scored, baseline_threshold=0.25)
     scored = optimize_discount_allocation(scored, budget=budget, method=method)
     selected = scored[scored["selected"] == 1].sort_values("expected_profit", ascending=False)
     if segment:
