@@ -1,0 +1,52 @@
+{
+  "numeric": {
+    "age": {
+      "mean": 36.19361,
+      "std": 10.54516273807435
+    },
+    "tenure_months": {
+      "mean": 34.94649,
+      "std": 21.84860728504915
+    },
+    "historical_orders": {
+      "mean": 4.73905,
+      "std": 2.484668354784665
+    },
+    "historical_revenue": {
+      "mean": 467.2176595,
+      "std": 447.3751896527144
+    },
+    "avg_order_value": {
+      "mean": 91.7298164,
+      "std": 51.64697620817511
+    },
+    "days_since_last_purchase": {
+      "mean": 36.15209,
+      "std": 25.439612229171335
+    },
+    "website_visits": {
+      "mean": 7.98433,
+      "std": 3.502682848756278
+    },
+    "email_opens": {
+      "mean": 7.20056,
+      "std": 3.334562471969718
+    },
+    "email_clicks": {
+      "mean": 0.96397,
+      "std": 1.0363699048726749
+    },
+    "previous_campaign_response": {
+      "mean": 0.33068,
+      "std": 0.47046036063573865
+    }
+  },
+  "categorical": {
+    "customer_segment": {
+      "standard": 0.50139,
+      "premium": 0.22836,
+      "budget": 0.2006,
+      "vip": 0.06965
+    }
+  }
+}
