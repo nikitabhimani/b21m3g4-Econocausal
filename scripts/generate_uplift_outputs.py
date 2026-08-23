@@ -31,6 +31,23 @@ def write_json(path: str, payload: dict) -> None:
         json.dump(payload, f, indent=4, allow_nan=False)
 
 
+def evaluate_random_targeting(segmented: pd.DataFrame, budget: float, seed: int = 42) -> dict:
+    """Estimate a random-targeting baseline from model predictions only."""
+    candidates = segmented[segmented["discount_cost"] > 0].copy()
+    candidates["expected_profit"] = candidates["ite"] * candidates["net_revenue"]
+    shuffled = candidates.sample(frac=1, random_state=seed).reset_index(drop=True)
+    shuffled["cum_cost"] = shuffled["discount_cost"].cumsum()
+    selected = shuffled[shuffled["cum_cost"] <= budget]
+    expected_profit = float(selected["expected_profit"].sum())
+    expected_cost = float(selected["discount_cost"].sum())
+    return {
+        "customers_targeted": len(selected),
+        "expected_profit": expected_profit,
+        "expected_cost": expected_cost,
+        "roi": expected_profit / expected_cost if expected_cost > 0 else 0.0,
+    }
+
+
 
 def main():
     print("Generating Uplift & Optimization outputs...")
@@ -48,6 +65,8 @@ def main():
     cust_df = pd.read_csv(customers_path)
 
     merged = pd.merge(pred_df, cust_df, on="customer_id")
+    if len(pred_df) != len(cust_df) or set(pred_df["customer_id"]) != set(cust_df["customer_id"]):
+        raise ValueError("Cannot generate uplift outputs from incomplete prediction coverage.")
 
     # Segment customers
     # We use baseline_threshold=0.25 based on the true baseline purchase probability distribution
@@ -112,12 +131,6 @@ def main():
         opt_b = optimize_discount_allocation(segmented, budget=float(b), method="greedy")
         sel_b = opt_b[opt_b["selected"] == 1]
 
-        # Random targeting baseline simulation
-        pos_cost_df = segmented[segmented["discount_cost"] > 0].copy()
-        shuffled = pos_cost_df.sample(frac=1, random_state=42).reset_index(drop=True)
-        shuffled["cum_cost"] = shuffled["discount_cost"].cumsum()
-        sel_rand = shuffled[shuffled["cum_cost"] <= b]
-
         scenarios[str(b)] = {
             "causal": {
                 "customers_targeted": len(sel_b),
@@ -125,12 +138,7 @@ def main():
                 "expected_cost": float(sel_b["expected_cost"].sum()),
                 "roi": float(sel_b["expected_profit"].sum() / sel_b["expected_cost"].sum()) if sel_b["expected_cost"].sum() > 0 else 0.0,
             },
-            "random": {
-                "customers_targeted": len(sel_rand),
-                "expected_profit": float((sel_rand["true_ite"] * sel_rand["net_revenue"]).sum()),
-                "expected_cost": float(sel_rand["discount_cost"].sum()),
-                "roi": float((sel_rand["true_ite"] * sel_rand["net_revenue"]).sum() / sel_rand["discount_cost"].sum()) if sel_rand["discount_cost"].sum() > 0 else 0.0,
-            },
+            "random": evaluate_random_targeting(segmented, budget=float(b)),
         }
 
     scenarios_path = os.path.join(project_root, "outputs", "scenario_comparison.json")
