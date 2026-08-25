@@ -158,6 +158,19 @@ def get_scenario_comparison() -> dict:
         return json.load(f)
 
 
+@router.get("/causal/drift")
+def get_drift_results() -> dict:
+    import json
+    import os
+    backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    project_root = os.path.dirname(backend_dir)
+    drift_path = os.path.join(project_root, "outputs", "drift_report.json")
+    if not os.path.exists(drift_path):
+        return {"error": "Drift report not found. Run drift_detector.py first."}
+    with open(drift_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
 @router.post("/causal/upload")
 async def upload_campaign_data(file: UploadFile = File(...)) -> dict:
     if not file.filename.endswith(".csv"):

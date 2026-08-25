@@ -25,6 +25,7 @@ export default function Home() {
   const [recommendationsData, setRecommendationsData] = useState(null);
   const [upliftData, setUpliftData] = useState(null);
   const [iteCustomers, setIteCustomers] = useState([]);
+  const [driftReport, setDriftReport] = useState(null);
 
   const scenariosData = upliftData?.scenarios;
 
@@ -58,16 +59,18 @@ export default function Home() {
   // Fetch static data (summary + causal metrics + uplift + scenarios)
   const fetchStaticData = useCallback(async () => {
     try {
-      const [summaryData, causalData, upliftPayload, iteData] = await Promise.all([
+      const [summaryData, causalData, upliftPayload, iteData, driftData] = await Promise.all([
         apiJson("summary"),
         apiJson("causal/summary"),
         apiJson("uplift"),
-        apiJson("causal/ite?limit=10")
+        apiJson("causal/ite?limit=10"),
+        apiJson("causal/drift").catch(() => null)
       ]);
       setSummary(summaryData);
       setCausalSummary(causalData);
       setUpliftData(upliftPayload);
       setIteCustomers(iteData);
+      setDriftReport(driftData);
     } catch (err) {
       console.error(err);
       setError(err.message || "An error occurred while loading dashboard data.");
@@ -277,6 +280,31 @@ export default function Home() {
     });
   };
 
+  const getNaturalLanguageSummary = () => {
+    if (!scenariosData) return null;
+    // Find nearest matching budget in scenarios
+    const budgetKeys = Object.keys(scenariosData).map(Number).sort((a, b) => a - b);
+    let closestKey = budgetKeys[0];
+    let minDiff = Math.abs(debouncedBudget - closestKey);
+    for (let key of budgetKeys) {
+      const diff = Math.abs(debouncedBudget - key);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closestKey = key;
+      }
+    }
+    const scenario = scenariosData[String(closestKey)];
+    if (!scenario) return null;
+    const causalProfit = scenario.causal.expected_profit;
+    const randomProfit = scenario.random.expected_profit;
+    const netGain = causalProfit - randomProfit;
+    const causalTargeted = scenario.causal.customers_targeted;
+    if (netGain <= 0) {
+      return `For a campaign budget cap of ${formatCurrency(closestKey)}, EconoCausal targets ${causalTargeted.toLocaleString()} optimal persuadable customers with high-efficiency ROI.`;
+    }
+    return `For a campaign budget cap of ${formatCurrency(closestKey)}, EconoCausal saves budget by targeting only ${causalTargeted.toLocaleString()} high-yield persuadable customers, generating ${formatCurrency(netGain)} in extra incremental profit compared to blanket random targeting (ROI: ${scenario.causal.roi.toFixed(2)}x vs ${scenario.random.roi.toFixed(2)}x).`;
+  };
+
 
   // Filtering recommendations based on search and segment filter
   const filteredRecs = recommendationsData?.recommendations.filter((rec) => {
@@ -478,6 +506,22 @@ export default function Home() {
                         </div>
                       </div>
                     )}
+                    {/* Natural Language Savings Summary */}
+                    {recommendationsData && upliftData && (
+                      <div style={{
+                        marginTop: "1.25rem",
+                        padding: "1rem",
+                        borderRadius: "8px",
+                        backgroundColor: "#f8fafc",
+                        borderLeft: "4px solid var(--primary)",
+                        fontSize: "0.85rem",
+                        lineHeight: "1.45",
+                        fontWeight: "550",
+                        color: "var(--text-primary)"
+                      }}>
+                        {getNaturalLanguageSummary()}
+                      </div>
+                    )}
                   </section>
                 </div>
 
@@ -553,10 +597,22 @@ export default function Home() {
                           )}
 
                           {causalSummary.mae !== undefined && (
-                            <div style={{ display: "flex", justifyContent: "space-between" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: driftReport ? "1px dashed var(--border-color)" : "none", paddingBottom: driftReport ? "0.65rem" : "0" }}>
                               <span style={{ color: "var(--text-secondary)", fontWeight: "500" }}>Mean Absolute Error (MAE)</span>
                               <span style={{ fontWeight: "700", fontFamily: "var(--font-mono)" }}>
                                 {causalSummary.mae.toFixed(5)}
+                              </span>
+                            </div>
+                          )}
+
+                          {driftReport && (
+                            <div style={{ display: "flex", justifyContent: "space-between" }}>
+                              <span style={{ color: "var(--text-secondary)", fontWeight: "500" }}>Data Drift Status</span>
+                              <span style={{ 
+                                fontWeight: "700", 
+                                color: driftReport.needs_retraining ? "var(--warning)" : "var(--success)"
+                              }}>
+                                {driftReport.overall_status} (Max PSI: {driftReport.max_psi.toFixed(4)})
                               </span>
                             </div>
                           )}
@@ -979,6 +1035,72 @@ export default function Home() {
             ================================================================== */}
         {currentTab === "Settings" && (
           <>
+            {driftReport && (
+              <section className="form-card" style={{ marginBottom: "2rem" }}>
+                <h2 className="card-title" style={{ marginBottom: "0.5rem" }}>Data Drift Diagnostics</h2>
+                <p className="card-subtitle" style={{ marginBottom: "1.5rem" }}>Comparison of current campaign dataset features against baseline training data.</p>
+                
+                <div style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "1rem",
+                  padding: "1rem",
+                  borderRadius: "8px",
+                  backgroundColor: driftReport.needs_retraining ? "rgba(245, 158, 11, 0.1)" : "rgba(16, 185, 129, 0.1)",
+                  border: driftReport.needs_retraining ? "1px solid rgba(245, 158, 11, 0.3)" : "1px solid rgba(16, 185, 129, 0.3)",
+                  marginBottom: "1.5rem"
+                }}>
+                  <div style={{
+                    width: "12px",
+                    height: "12px",
+                    borderRadius: "50%",
+                    backgroundColor: driftReport.needs_retraining ? "var(--warning)" : "var(--success)"
+                  }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: "700", fontSize: "0.95rem" }}>
+                      Overall Status: {driftReport.overall_status} (Max PSI: {driftReport.max_psi.toFixed(4)})
+                    </div>
+                    <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginTop: "0.25rem" }}>
+                      {driftReport.needs_retraining 
+                        ? "Warning: Significant feature distribution changes detected. We highly recommend retraining the causal pipeline."
+                        : "Feature distributions are stable. Causal inference outputs are reliable."
+                      }
+                    </div>
+                  </div>
+                </div>
+
+                <div className="table-container">
+                  <table className="custom-table" style={{ fontSize: "0.85rem" }}>
+                    <thead>
+                      <tr>
+                        <th>Feature</th>
+                        <th>PSI Score</th>
+                        <th>KS p-value</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.entries(driftReport.drift_by_feature).map(([feat, details]) => (
+                        <tr key={feat}>
+                          <td style={{ fontWeight: "600" }}>{feat}</td>
+                          <td style={{ fontFamily: "var(--font-mono)" }}>{details.psi.toFixed(4)}</td>
+                          <td style={{ fontFamily: "var(--font-mono)" }}>{details.p_value.toFixed(5)}</td>
+                          <td>
+                            <span className={`badge ${
+                              details.status === "Significant Drift" ? "badge-danger" : 
+                              details.status === "Moderate Drift" ? "badge-warning" : "badge-success"
+                            }`}>
+                              {details.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            )}
+
             <section className="form-card" style={{ marginBottom: "2rem" }}>
               <h2 className="card-title" style={{ marginBottom: "0.5rem" }}>Upload Campaign Dataset</h2>
               <p className="card-subtitle" style={{ marginBottom: "2rem" }}>Upload a new historical customer campaign dataset (CSV format) to overwrite the existing customer database and retrain the causal models.</p>

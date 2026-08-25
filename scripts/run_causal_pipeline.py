@@ -16,6 +16,7 @@ STEPS = (
     ROOT / "causal_ml" / "predict.py",
     ROOT / "causal_ml" / "diagnostics.py",
     ROOT / "causal_ml" / "refutation_tests.py",
+    ROOT / "causal_ml" / "drift_detector.py",
     ROOT / "scripts" / "generate_uplift_outputs.py",
 )
 
@@ -47,6 +48,7 @@ def main() -> None:
         "recommendations.json",
         "scenario_comparison.json",
         "refutation_report.json",
+        "drift_report.json",
     )
     manifest = {
         "run_id": run_id,

@@ -97,3 +97,32 @@ def test_optimize_endpoint_exposes_lp_method(monkeypatch):
     response = routes.optimize(budget=100.0, method="lp")
     assert response["method"] == "lp"
     assert captured == {"budget": 100.0, "method": "lp"}
+
+
+def test_drift_endpoint(monkeypatch, tmp_path):
+    import json
+    import os
+
+    # Create dummy drift_report.json
+    dummy_report = {"overall_status": "Stable", "max_psi": 0.0, "needs_retraining": False}
+    drift_file = tmp_path / "drift_report.json"
+    drift_file.write_text(json.dumps(dummy_report))
+
+    # Mock os.path.exists and open inside get_drift_results to point to our mock file
+    def mock_exists(path):
+        if "drift_report.json" in path:
+            return True
+        return False
+
+    original_open = open
+    def mock_open(path, *args, **kwargs):
+        if "drift_report.json" in str(path):
+            return original_open(drift_file, *args, **kwargs)
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(os.path, "exists", mock_exists)
+    monkeypatch.setattr("builtins.open", mock_open)
+
+    result = routes.get_drift_results()
+    assert result == dummy_report
+

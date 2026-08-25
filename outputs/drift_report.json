@@ -1,0 +1,44 @@
+{
+    "overall_status": "Stable",
+    "max_psi": 5.5646872991797546e-09,
+    "drift_by_feature": {
+        "age": {
+            "ks_statistic": 1.0000000000065512e-05,
+            "p_value": 1.0,
+            "psi": 3.819774332431577e-09,
+            "status": "Stable",
+            "drift_detected": false
+        },
+        "avg_order_value": {
+            "ks_statistic": 1.0000000000065512e-05,
+            "p_value": 1.0,
+            "psi": 3.9999008131792e-09,
+            "status": "Stable",
+            "drift_detected": false
+        },
+        "historical_orders": {
+            "ks_statistic": 1.0000000000010001e-05,
+            "p_value": 1.0,
+            "psi": 1.2471773289704655e-09,
+            "status": "Stable",
+            "drift_detected": false
+        },
+        "website_visits": {
+            "ks_statistic": 2.0000000000020002e-05,
+            "p_value": 1.0,
+            "psi": 5.5646872991797546e-09,
+            "status": "Stable",
+            "drift_detected": false
+        },
+        "days_since_last_purchase": {
+            "ks_statistic": 2.0000000000020002e-05,
+            "p_value": 1.0,
+            "psi": 3.8887253559239775e-09,
+            "status": "Stable",
+            "drift_detected": false
+        }
+    },
+    "baseline_record_count": 100000,
+    "target_record_count": 100000,
+    "needs_retraining": false
+}
